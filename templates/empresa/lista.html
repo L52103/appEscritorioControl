@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Empresas registradas</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+</head>
+<body>
+  <nav class="navbar navbar-expand-lg navbar-dark bg-primary mb-4">
+    <div class="container">
+      <a class="navbar-brand" href="{{ url_for('index') }}">CRUD Flask</a>
+      <button
+        class="navbar-toggler"
+        type="button"
+        data-bs-toggle="collapse"
+        data-bs-target="#navbarNav"
+        aria-controls="navbarNav"
+        aria-expanded="false"
+        aria-label="Toggle navigation"
+      >
+        <span class="navbar-toggler-icon"></span>
+      </button>
+
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav">
+          <li class="nav-item"><a class="nav-link" href="{{ url_for('empresa.listar_empresas') }}">Empresas</a></li>
+          <li class="nav-item"><a class="nav-link" href="{{ url_for('sucursal.listar_sucursales') }}">Sucursales</a></li>
+          <li class="nav-item"><a class="nav-link" href="{{ url_for('areatrabajo.listar_areas') }}">Áreas de Trabajo</a></li>
+          <li class="nav-item"><a class="nav-link" href="{{ url_for('trabajador.listar_trabajadores') }}">Trabajadores</a></li>
+          <li class="nav-item"><a class="nav-link" href="{{ url_for('asistencia.listar_asistencias') }}">Asistencias</a></li>
+          <li class="nav-item"><a class="nav-link" href="{{ url_for('turno.listar_turnos') }}">Turnos</a></li>
+          <li class="nav-item"><a class="nav-link" href="{{ url_for('turno_trabajador.listar_turnos_trabajadores') }}">Turno-Trabajador</a></li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <main class="container">
+    <h2 class="mb-4">Empresas registradas</h2>
+    <a href="{{ url_for('empresa.crear_empresa') }}" class="btn btn-success mb-3">➕ Crear nueva empresa</a>
+
+    <table class="table table-striped table-bordered align-middle">
+      <thead class="table-dark">
+        <tr>
+          <th>ID</th>
+          <th>Nombre</th>
+          <th>RUT</th>
+          <th>Dirección</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for empresa in empresas %}
+        <tr>
+          <td>{{ empresa[0] }}</td>
+          <td>{{ empresa[1] }}</td>
+          <td>{{ empresa[2] }}</td>
+          <td>{{ empresa[3] }}</td>
+          <td>
+            <a href="{{ url_for('empresa.editar_empresa', id=empresa[0]) }}" class="btn btn-sm btn-primary me-2">✏️ Editar</a>
+            <form action="{{ url_for('empresa.eliminar_empresa', id=empresa[0]) }}" method="post" class="d-inline" onsubmit="return confirm('¿Seguro que quieres eliminar esta empresa?');">
+              <button type="submit" class="btn btn-sm btn-danger">🗑️ Eliminar</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="5" class="text-center">No hay empresas registradas.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
