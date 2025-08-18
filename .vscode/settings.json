@@ -1,0 +1,11 @@
+{
+    "appService.defaultWebAppToDeploy": "/subscriptions/8d953273-d336-4479-94d8-8fd6687f8e4e/resourceGroups/appsvc_linux_chilecentral/providers/Microsoft.Web/sites/apivisual2",
+    "appService.deploySubpath": ".",
+    "azureFunctions.deploySubpath": "MiApiLogin",
+    "azureFunctions.scmDoBuildDuringDeployment": true,
+    "azureFunctions.pythonVenv": ".venv",
+    "azureFunctions.projectLanguage": "Python",
+    "azureFunctions.projectRuntime": "~4",
+    "debug.internalConsoleOptions": "neverOpen",
+    "azureFunctions.projectLanguageModel": 2
+}
