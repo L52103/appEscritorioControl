@@ -10,15 +10,8 @@
   <nav class="navbar navbar-expand-lg navbar-dark bg-primary mb-4">
     <div class="container">
       <a class="navbar-brand" href="{{ url_for('index') }}">CRUD Flask</a>
-      <button
-        class="navbar-toggler"
-        type="button"
-        data-bs-toggle="collapse"
-        data-bs-target="#navbarNav"
-        aria-controls="navbarNav"
-        aria-expanded="false"
-        aria-label="Toggle navigation"
-      >
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
+              aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
         <span class="navbar-toggler-icon"></span>
       </button>
       <div class="collapse navbar-collapse" id="navbarNav">
@@ -35,38 +28,111 @@
   </nav>
 
   <main class="container mt-4">
-    <h2 class="mb-4">Asistencias</h2>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="mb-3">
+          {% for category, message in messages %}
+            <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+              {{ message }}
+              <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
 
-    <table class="table table-striped table-bordered align-middle">
-      <thead class="table-dark">
-        <tr>
-          <th>ID</th>
-          <th>Fecha</th>
-          <th>Hora Entrada</th>
-          <th>Hora Salida</th>
-          <th>Geolocalización</th>
-          <th>ID Trabajador</th>
-          <th>Número Asistencia</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for asistencia in asistencias %}
-        <tr>
-          <td>{{ asistencia[0] }}</td>
-          <td>{{ asistencia[1] }}</td>
-          <td>{{ asistencia[2] }}</td>
-          <td>{{ asistencia[3] }}</td>
-          <td>{{ asistencia[4] }}</td>
-          <td>{{ asistencia[5] }}</td>
-          <td>{{ asistencia[6] }}</td>
-        </tr>
-        {% else %}
-        <tr>
-          <td colspan="7" class="text-center">No hay asistencias registradas.</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+    <h2 class="mb-3">Asistencias</h2>
+
+    <div class="table-responsive">
+      <table class="table table-striped table-bordered align-middle">
+        <thead class="table-dark">
+          <tr>
+            <th>ID</th>
+            <th>Fecha</th>
+            <th>Entrada</th>
+            <th>Salida</th>
+            <th>Trabajador</th>
+
+            <th>¿Asistió?</th>
+            <th>¿Justificado?</th>
+            <th>¿Procesado IA?</th>
+
+            <th>Mensaje</th>
+            <th>Categoría</th>
+            <th>Inicio</th>
+            <th>Fin</th>
+            <th>Días</th>
+
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for a in asistencias %}
+          {# indices:
+             0:id,1:fecha,2:hora_entrada,3:hora_salida,
+             4:trabajador_id,5:trabajador_nombre,
+             6:is_asistencia,7:justificado,8:procesado_ia,
+             9:mensaje_texto,10:categoria,11:fecha_inicio,12:fecha_fin,13:duracion_dias
+          #}
+          <tr>
+            <td>{{ a[0] }}</td>
+            <td>{{ a[1] }}</td>
+            <td>{{ a[2] }}</td>
+            <td>{{ a[3] }}</td>
+
+            <td>
+              [{{ a[4] }}] {{ a[5] or '—' }}
+            </td>
+
+            <td>
+              {% if a[6] %}
+                <span class="badge text-bg-success">Sí</span>
+              {% else %}
+                <span class="badge text-bg-danger">No</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if a[7] %}
+                <span class="badge text-bg-primary">Sí</span>
+              {% else %}
+                <span class="badge text-bg-warning">No</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if a[8] %}
+                <span class="badge text-bg-success">Sí</span>
+              {% else %}
+                <span class="badge text-bg-secondary">No</span>
+              {% endif %}
+            </td>
+
+            <td style="max-width: 320px;">
+              <div class="text-truncate" title="{{ a[9] or '' }}">{{ a[9] or '—' }}</div>
+            </td>
+            <td>{{ a[10] or '—' }}</td>
+            <td>{{ a[11] or '—' }}</td>
+            <td>{{ a[12] or '—' }}</td>
+            <td>{{ a[13] or '—' }}</td>
+
+            <td class="text-nowrap">
+              {% if not a[6] and not a[8] %}
+                <form action="{{ url_for('asistencia.procesar_asistencia', asistencia_id=a[0]) }}"
+                      method="POST" class="d-inline">
+                  <button type="submit" class="btn btn-sm btn-outline-primary">Procesar</button>
+                </form>
+              {% else %}
+                <button class="btn btn-sm btn-outline-secondary" disabled>Procesar</button>
+              {% endif %}
+            </td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="14" class="text-center">No hay asistencias registradas.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
