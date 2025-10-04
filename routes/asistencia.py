@@ -101,24 +101,28 @@ def calcular_rango(mensaje: str, fecha_dialogo: date):
 
 @asistencia_bp.route("/asistencias", methods=["GET"])
 def listar_asistencias():
-    conn = get_connection()
-    cur = conn.cursor(cursor_factory=DictCursor)
-    cur.execute("""
-        SELECT
-            a.id, a.fecha, a.hora_entrada, a.hora_salida, a.trabajador_id,
-            TRIM(CONCAT_WS(' ', t.nombre, t.apellido)) AS trabajador_nombre,
-            a.is_asistencia, a.justificado, a.procesado_ia,
-            COALESCE(a.mensaje, '') AS mensaje_texto,
-            COALESCE(a.categoria, '') AS categoria,
-            a.fecha_inicio_inasistencia, a.fecha_fin_inasistencia, a.duracion_dias
-        FROM asistencia a
-        LEFT JOIN trabajador t ON t.id = a.trabajador_id
-        ORDER BY a.fecha DESC, a.id DESC;
-    """)
-    asistencias = cur.fetchall()
-    cur.close()
-    conn.close()
-    return render_template("asistencia/lista.html", asistencias=asistencias)
+    conn = None
+    try:
+        conn = get_connection()
+        cur = conn.cursor(cursor_factory=DictCursor)
+        cur.execute("""
+            SELECT
+                a.id, a.fecha, a.hora_entrada, a.hora_salida, a.trabajador_id,
+                TRIM(CONCAT_WS(' ', t.nombre, t.apellido)) AS trabajador_nombre,
+                a.is_asistencia, a.justificado, a.procesado_ia,
+                COALESCE(a.mensaje, '') AS mensaje_texto,
+                COALESCE(a.categoria, '') AS categoria,
+                a.fecha_inicio_inasistencia, a.fecha_fin_inasistencia, a.duracion_dias
+            FROM asistencia a
+            LEFT JOIN trabajador t ON t.id = a.trabajador_id
+            ORDER BY a.fecha DESC, a.id DESC;
+        """)
+        asistencias = cur.fetchall()
+        cur.close()
+        return render_template("asistencia/lista.html", asistencias=asistencias)
+    finally:
+        if conn:
+            conn.close()
 
 @asistencia_bp.route("/asistencias/<int:asistencia_id>/procesar", methods=["POST"])
 def procesar_asistencia(asistencia_id):
@@ -174,7 +178,7 @@ def procesar_asistencia(asistencia_id):
         except: pass
     return redirect(url_for("asistencia.listar_asistencias"))
 
-# --- RUTA DE DESCARGA DE EXCEL ---
+# --- RUTA DE DESCARGA DE EXCEL (CON AUTOAJUSTE DE COLUMNAS) ---
 @asistencia_bp.route("/asistencias/descargar")
 def descargar_asistencias():
     conn = None
@@ -182,7 +186,6 @@ def descargar_asistencias():
         conn = get_connection()
         cur = conn.cursor(cursor_factory=DictCursor)
         
-        # Consulta SQL corregida con todos los prefijos 'a.' para evitar errores
         cur.execute("""
             SELECT
                 a.id, a.fecha, a.hora_entrada, a.hora_salida,
@@ -196,6 +199,7 @@ def descargar_asistencias():
             ORDER BY a.fecha DESC, a.id DESC;
         """)
         
+        column_names = [desc[0] for desc in cur.description]
         asistencias = cur.fetchall()
         cur.close()
         
@@ -203,8 +207,8 @@ def descargar_asistencias():
             flash("No hay datos para exportar.", "warning")
             return redirect(url_for("asistencia.listar_asistencias"))
 
-        df = pd.DataFrame(asistencias)
-        
+        df = pd.DataFrame(asistencias, columns=column_names)
+
         df['is_asistencia'] = df['is_asistencia'].apply(lambda x: 'Sí' if x else 'No')
         df['justificado'] = df['justificado'].apply(lambda x: 'Sí' if x else 'No')
         df['procesado_ia'] = df['procesado_ia'].apply(lambda x: 'Sí' if x else 'No')
@@ -219,9 +223,27 @@ def descargar_asistencias():
         }, inplace=True)
 
         output = io.BytesIO()
-        writer = pd.ExcelWriter(output, engine='openpyxl')
-        df.to_excel(writer, index=False, sheet_name='Reporte de Asistencias')
-        writer.close()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df.to_excel(writer, index=False, sheet_name='Reporte de Asistencias')
+
+            # ==================== INICIO DE LA EDICIÓN ====================
+            # Accedemos a la hoja de cálculo para ajustarla
+            worksheet = writer.sheets['Reporte de Asistencias']
+
+            # Iteramos sobre cada columna para ajustar su ancho automáticamente
+            for column_cells in worksheet.columns:
+                max_length = 0
+                column_letter = column_cells[0].column_letter
+                for cell in column_cells:
+                    try:
+                        if len(str(cell.value)) > max_length:
+                            max_length = len(str(cell.value))
+                    except:
+                        pass
+                adjusted_width = (max_length + 2)
+                worksheet.column_dimensions[column_letter].width = adjusted_width
+            # ===================== FIN DE LA EDICIÓN ======================
+
         output.seek(0)
 
         return send_file(
@@ -235,4 +257,4 @@ def descargar_asistencias():
         return redirect(url_for("asistencia.listar_asistencias"))
     finally:
         if conn:
-            conn.close() 
+            conn.close()
