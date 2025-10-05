@@ -1,8 +1,10 @@
+# app.py
+
 import os
 from dotenv import load_dotenv
 from flask import Flask, render_template
 
-load_dotenv()  # carga las variables del .env
+load_dotenv()
 
 from routes.empresa import empresa_bp
 from routes.sucursal import sucursal_bp
@@ -11,10 +13,11 @@ from routes.trabajador import trabajador_bp
 from routes.asistencia import asistencia_bp
 from routes.turno import turno_bp
 from routes.turno_trabajador import turno_trabajador_bp
+from routes.reportes import reportes_bp # <--- AGREGA ESTA LÍNEA
 
 app = Flask(__name__)
 
-app.secret_key = os.getenv("SECRET_KEY", "clave_por_defecto_para_dev")  # si no está, usa esta
+app.secret_key = os.getenv("SECRET_KEY", "clave_por_defecto_para_dev")
 
 # Registrar blueprints
 app.register_blueprint(empresa_bp)
@@ -24,6 +27,7 @@ app.register_blueprint(trabajador_bp)
 app.register_blueprint(asistencia_bp)
 app.register_blueprint(turno_bp)
 app.register_blueprint(turno_trabajador_bp)
+app.register_blueprint(reportes_bp) # <--- AGREGA ESTA LÍNEA
 
 @app.route("/")
 def index():

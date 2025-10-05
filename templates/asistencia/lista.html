@@ -70,16 +70,15 @@
 
         <div class="d-flex justify-content-between align-items-center mb-3">
             <h2 class="mb-0">Asistencias</h2>
-            {# --- ESTE ES EL NUEVO BOTÓN PARA DESCARGAR --- #}
-            <a href="{{ url_for('asistencia.descargar_asistencias') }}" class="btn btn-success">
-                📥 Descargar Excel
-            </a>
-
-
-
-
+            <div>
+                <a href="{{ url_for('reportes.descargar_grafico_excel') }}" class="btn btn-primary">
+                    📈 Descargar Excel con Gráfico
+                </a>
+                <a href="{{ url_for('asistencia.descargar_asistencias') }}" class="btn btn-success">
+                    📥 Descargar Detalle Completo
+                </a>
+            </div>
         </div>
-
         <div class="table-responsive">
             <table class="table table-striped table-bordered align-middle">
                 <thead class="table-dark">
