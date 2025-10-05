@@ -179,7 +179,7 @@ def procesar_asistencia(asistencia_id):
         except: pass
     return redirect(url_for("asistencia.listar_asistencias"))
 
-# --- RUTA DE DESCARGA DE EXCEL (CON AUTOAJUSTE DE COLUMNAS) ---
+# --- RUTA DE DESCARGA DE REPORTE ÚNICO Y COMPLETO (CON CÁLCULO DE HORAS) ---
 @asistencia_bp.route("/asistencias/descargar")
 def descargar_asistencias():
     conn = None
@@ -187,51 +187,86 @@ def descargar_asistencias():
         conn = get_connection()
         cur = conn.cursor(cursor_factory=DictCursor)
         
+        # 1. Consulta SQL que trae todas las columnas necesarias
         cur.execute("""
             SELECT
-                a.id, a.fecha, a.hora_entrada, a.hora_salida,
-                TRIM(CONCAT_WS(' ', t.nombre, t.apellido)) AS trabajador_nombre,
-                a.is_asistencia, a.justificado, a.procesado_ia,
-                COALESCE(a.mensaje, '') AS mensaje_texto,
-                COALESCE(a.categoria, '') AS categoria,
-                a.fecha_inicio_inasistencia, a.fecha_fin_inasistencia, a.duracion_dias
+                a.id,
+                TRIM(CONCAT_WS(' ', t.nombre, t.apellido)) AS trabajador,
+                a.fecha,
+                a.hora_entrada,
+                a.hora_salida,
+                a.is_asistencia,
+                a.is_atrasado,
+                a.justificado,
+                a.procesado_ia,
+                a.mensaje,
+                a.categoria,
+                a.fecha_inicio_inasistencia,
+                a.fecha_fin_inasistencia,
+                a.duracion_dias
             FROM asistencia a
             LEFT JOIN trabajador t ON t.id = a.trabajador_id
             ORDER BY a.fecha DESC, a.id DESC;
         """)
         
-        column_names = [desc[0] for desc in cur.description]
-        asistencias = cur.fetchall()
+        registros = cur.fetchall()
         cur.close()
 
-        if not asistencias:
+        if not registros:
             flash("No hay datos para exportar.", "warning")
             return redirect(url_for("asistencia.listar_asistencias"))
 
-        df = pd.DataFrame(asistencias, columns=column_names)
+        # 2. Procesamiento de los datos para el formato del Excel
+        datos_procesados = []
+        for reg in registros:
+            
+            # --- INICIO DEL CÁLCULO DE HORAS TRABAJADAS ---
+            horas_trabajadas_str = "0:00:00" # Valor por defecto
+            if reg['hora_entrada'] and reg['hora_salida']:
+                # Combinamos la fecha con las horas para poder restarlas
+                fecha_asistencia = reg['fecha']
+                dt_entrada = datetime.combine(fecha_asistencia, reg['hora_entrada'])
+                dt_salida = datetime.combine(fecha_asistencia, reg['hora_salida'])
 
-        df['is_asistencia'] = df['is_asistencia'].apply(lambda x: 'Sí' if x else 'No')
-        df['justificado'] = df['justificado'].apply(lambda x: 'Sí' if x else 'No')
-        df['procesado_ia'] = df['procesado_ia'].apply(lambda x: 'Sí' if x else 'No')
+                # Si la hora de salida es menor, significa que cruzó la medianoche
+                if dt_salida < dt_entrada:
+                    dt_salida += timedelta(days=1)
+                
+                duracion = dt_salida - dt_entrada
+                
+                # Formateamos la duración a un string H:MM:SS
+                total_seconds = int(duracion.total_seconds())
+                hours, remainder = divmod(total_seconds, 3600)
+                minutes, seconds = divmod(remainder, 60)
+                horas_trabajadas_str = f"{hours}:{minutes:02d}:{seconds:02d}"
+            # --- FIN DEL CÁLCULO ---
 
-        df.rename(columns={
-            'id': 'ID', 'fecha': 'Fecha', 'hora_entrada': 'Hora Entrada',
-            'hora_salida': 'Hora Salida', 'trabajador_nombre': 'Trabajador',
-            'is_asistencia': 'Asistió', 'justificado': 'Justificado',
-            'procesado_ia': 'Procesado IA', 'mensaje_texto': 'Mensaje',
-            'categoria': 'Categoría', 'fecha_inicio_inasistencia': 'Inicio Inasistencia',
-            'fecha_fin_inasistencia': 'Fin Inasistencia', 'duracion_dias': 'Días'
-        }, inplace=True)
+            datos_procesados.append({
+                "ID": reg['id'],
+                "Trabajador": reg['trabajador'],
+                "Fecha": reg['fecha'],
+                "Hora Entrada": reg['hora_entrada'],
+                "Hora Salida": reg['hora_salida'],
+                "Horas trabajadas": horas_trabajadas_str, # Usamos el valor calculado
+                "Asistió": "Sí" if reg['is_asistencia'] else "No",
+                "Atrasado": "Sí" if reg['is_atrasado'] else "No",
+                "Justificado": "Sí" if reg['justificado'] else "No",
+                "Procesado IA": "Sí" if reg['procesado_ia'] else "No",
+                "Mensaje": reg['mensaje'],
+                "Categoria": reg['categoria'],
+                "Inicio Inasistencia": reg['fecha_inicio_inasistencia'],
+                "Fin Inasistencia": reg['fecha_fin_inasistencia'],
+                "Dias": reg['duracion_dias']
+            })
+
+        # 3. Creación del archivo Excel con Pandas
+        df = pd.DataFrame(datos_procesados)
 
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            df.to_excel(writer, index=False, sheet_name='Reporte de Asistencias')
-
-            # ==================== INICIO DE LA EDICIÓN ====================
-            # Accedemos a la hoja de cálculo para ajustarla
-            worksheet = writer.sheets['Reporte de Asistencias']
-
-            # Iteramos sobre cada columna para ajustar su ancho automáticamente
+            df.to_excel(writer, index=False, sheet_name='Reporte Completo de Asistencias')
+            worksheet = writer.sheets['Reporte Completo de Asistencias']
+            # Auto-ajuste del ancho de las columnas
             for column_cells in worksheet.columns:
                 max_length = 0
                 column_letter = column_cells[0].column_letter
@@ -243,65 +278,18 @@ def descargar_asistencias():
                         pass
                 adjusted_width = (max_length + 2)
                 worksheet.column_dimensions[column_letter].width = adjusted_width
-            # ===================== FIN DE LA EDICIÓN ======================
-
         output.seek(0)
 
         return send_file(
             output,
             mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
             as_attachment=True,
-            download_name='reporte_asistencias.xlsx'
+            download_name=f'reporte_asistencias_completo_{date.today()}.xlsx'
         )
     except Exception as e:
         flash(f"Error al generar el reporte: {e}", "danger")
+        print(f"Error detallado en descarga: {e}") # Para depuración en consola
         return redirect(url_for("asistencia.listar_asistencias"))
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
     finally:
         if conn:
             conn.close()
