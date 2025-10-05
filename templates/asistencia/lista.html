@@ -1,19 +1,52 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Asistencias</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
 </head>
+
 <body>
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary mb-4">
         <div class="container">
-            <a class="navbar-brand" href="{{ url_for('index') }}">CRUD Flask</a>
-            <div class="collapse navbar-collapse">
+            <a class="navbar-brand" href="{{ url_for('index') }}">Control Asistencia</a>
+
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCentered"
+                aria-controls="navbarCentered" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+
+            <div class="collapse navbar-collapse justify-content-center" id="navbarCentered">
                 <ul class="navbar-nav">
                     <li class="nav-item">
-                        <a class="nav-link active" href="{{ url_for('asistencia.listar_asistencias') }}">Asistencias</a>
+                        <a class="nav-link {% if active_page == 'empresas' %}active{% endif %}"
+                            href="{{ url_for('empresa.listar_empresas') }}">Empresas</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if active_page == 'sucursales' %}active{% endif %}"
+                            href="{{ url_for('sucursal.listar_sucursales') }}">Sucursales</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if active_page == 'areas' %}active{% endif %}"
+                            href="{{ url_for('areatrabajo.listar_areas') }}">Áreas de Trabajo</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if active_page == 'trabajadores' %}active{% endif %}"
+                            href="{{ url_for('trabajador.listar_trabajadores') }}">Trabajadores</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if active_page == 'asistencias' %}active{% endif %}"
+                            href="{{ url_for('asistencia.listar_asistencias') }}">Asistencias</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if active_page == 'turnos' %}active{% endif %}"
+                            href="{{ url_for('turno.listar_turnos') }}">Turnos</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if active_page == 'turno_trabajador' %}active{% endif %}"
+                            href="{{ url_for('turno_trabajador.listar_turnos_trabajadores') }}">Turno-Trabajador</a>
                     </li>
                 </ul>
             </div>
@@ -21,29 +54,30 @@
     </nav>
 
     <main class="container mt-4">
+        {# Bloque para mostrar mensajes flash al usuario (ej: "Procesado con éxito") #}
         {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                <div class="mb-3">
-                {% for category, message in messages %}
-                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-                        {{ message }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                    </div>
-                {% endfor %}
-                </div>
-            {% endif %}
+        {% if messages %}
+        <div class="mb-3">
+            {% for category, message in messages %}
+            <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
         {% endwith %}
 
         <div class="d-flex justify-content-between align-items-center mb-3">
             <h2 class="mb-0">Asistencias</h2>
-            <div>
-                <a href="{{ url_for('asistencia.descargar_asistencias') }}" class="btn btn-success">
-                    📥 Descargar Excel
-                </a>
-                <a href="{{ url_for('asistencia.descargar_asistencias_pdf') }}" class="btn btn-danger">
-                    📄 Descargar PDF
-                </a>
-            </div>
+            {# --- ESTE ES EL NUEVO BOTÓN PARA DESCARGAR --- #}
+            <a href="{{ url_for('asistencia.descargar_asistencias') }}" class="btn btn-success">
+                📥 Descargar Excel
+            </a>
+
+
+
+
         </div>
 
         <div class="table-responsive">
@@ -67,8 +101,10 @@
                     </tr>
                 </thead>
                 <tbody>
+                    {# Bucle que recorre la lista de asistencias #}
                     {% for a in asistencias %}
                     <tr>
+                        {# Accedemos a los datos por nombre de columna #}
                         <td>{{ a['id'] }}</td>
                         <td>{{ a['fecha'] }}</td>
                         <td>{{ a['hora_entrada'] }}</td>
@@ -78,39 +114,42 @@
                         </td>
                         <td>
                             {% if a['is_asistencia'] %}
-                                <span class="badge text-bg-success">Sí</span>
+                            <span class="badge text-bg-success">Sí</span>
                             {% else %}
-                                <span class="badge text-bg-danger">No</span>
+                            <span class="badge text-bg-danger">No</span>
                             {% endif %}
                         </td>
                         <td>
                             {% if a['justificado'] %}
-                                <span class="badge text-bg-primary">Sí</span>
+                            <span class="badge text-bg-primary">Sí</span>
                             {% else %}
-                                <span class="badge text-bg-warning">No</span>
+                            <span class="badge text-bg-warning">No</span>
                             {% endif %}
                         </td>
                         <td>
                             {% if a['procesado_ia'] %}
-                                <span class="badge text-bg-success">Sí</span>
+                            <span class="badge text-bg-success">Sí</span>
                             {% else %}
-                                <span class="badge text-bg-secondary">No</span>
+                            <span class="badge text-bg-secondary">No</span>
                             {% endif %}
                         </td>
                         <td style="max-width: 320px;">
-                            <div class="text-truncate" title="{{ a['mensaje_texto'] or '' }}">{{ a['mensaje_texto'] or '—' }}</div>
+                            <div class="text-truncate" title="{{ a['mensaje_texto'] or '' }}">{{ a['mensaje_texto'] or
+                                '—' }}</div>
                         </td>
                         <td>{{ a['categoria'] or '—' }}</td>
                         <td>{{ a['fecha_inicio_inasistencia'] or '—' }}</td>
                         <td>{{ a['fecha_fin_inasistencia'] or '—' }}</td>
                         <td>{{ a['duracion_dias'] or '—' }}</td>
                         <td class="text-nowrap">
+                            {# El botón solo se activa si es una inasistencia y no ha sido procesada #}
                             {% if not a['is_asistencia'] and not a['procesado_ia'] %}
-                                <form action="{{ url_for('asistencia.procesar_asistencia', asistencia_id=a['id']) }}" method="POST" class="d-inline">
-                                    <button type="submit" class="btn btn-sm btn-outline-primary">Procesar</button>
-                                </form>
+                            <form action="{{ url_for('asistencia.procesar_asistencia', asistencia_id=a['id']) }}"
+                                method="POST" class="d-inline">
+                                <button type="submit" class="btn btn-sm btn-outline-primary">Procesar</button>
+                            </form>
                             {% else %}
-                                <button class="btn btn-sm btn-outline-secondary" disabled>Procesar</button>
+                            <button class="btn btn-sm btn-outline-secondary" disabled>Procesar</button>
                             {% endif %}
                         </td>
                     </tr>
@@ -125,4 +164,5 @@
     </main>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
+
 </html>

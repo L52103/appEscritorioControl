@@ -7,10 +7,10 @@ import threading
 import re
 # Importamos DictCursor para acceder a los datos por nombre
 from psycopg2.extras import DictCursor
-# Importaciones para generar Excel y PDF
+# Nuevas importaciones para generar el Excel
 import pandas as pd
 import io
-from weasyprint import HTML
+
 
 asistencia_bp = Blueprint("asistencia", __name__, template_folder="../templates")
 
@@ -137,7 +137,7 @@ def procesar_asistencia(asistencia_id):
             FOR UPDATE;
         """, (asistencia_id,))
         row = cur.fetchone()
-        
+
         if not row:
             flash("Asistencia no encontrada.", "warning")
             conn.rollback()
@@ -179,12 +179,14 @@ def procesar_asistencia(asistencia_id):
         except: pass
     return redirect(url_for("asistencia.listar_asistencias"))
 
-@asistencia_bp.route("/asistencias/descargar-excel")
+# --- RUTA DE DESCARGA DE EXCEL (CON AUTOAJUSTE DE COLUMNAS) ---
+@asistencia_bp.route("/asistencias/descargar")
 def descargar_asistencias():
     conn = None
     try:
         conn = get_connection()
         cur = conn.cursor(cursor_factory=DictCursor)
+        
         cur.execute("""
             SELECT
                 a.id, a.fecha, a.hora_entrada, a.hora_salida,
@@ -197,15 +199,17 @@ def descargar_asistencias():
             LEFT JOIN trabajador t ON t.id = a.trabajador_id
             ORDER BY a.fecha DESC, a.id DESC;
         """)
+        
+        column_names = [desc[0] for desc in cur.description]
         asistencias = cur.fetchall()
         cur.close()
-        
+
         if not asistencias:
             flash("No hay datos para exportar.", "warning")
             return redirect(url_for("asistencia.listar_asistencias"))
 
-        df = pd.DataFrame(asistencias)
-        
+        df = pd.DataFrame(asistencias, columns=column_names)
+
         df['is_asistencia'] = df['is_asistencia'].apply(lambda x: 'Sí' if x else 'No')
         df['justificado'] = df['justificado'].apply(lambda x: 'Sí' if x else 'No')
         df['procesado_ia'] = df['procesado_ia'].apply(lambda x: 'Sí' if x else 'No')
@@ -222,7 +226,12 @@ def descargar_asistencias():
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine='openpyxl') as writer:
             df.to_excel(writer, index=False, sheet_name='Reporte de Asistencias')
+
+            # ==================== INICIO DE LA EDICIÓN ====================
+            # Accedemos a la hoja de cálculo para ajustarla
             worksheet = writer.sheets['Reporte de Asistencias']
+
+            # Iteramos sobre cada columna para ajustar su ancho automáticamente
             for column_cells in worksheet.columns:
                 max_length = 0
                 column_letter = column_cells[0].column_letter
@@ -230,10 +239,12 @@ def descargar_asistencias():
                     try:
                         if len(str(cell.value)) > max_length:
                             max_length = len(str(cell.value))
-                    except: pass
+                    except:
+                        pass
                 adjusted_width = (max_length + 2)
                 worksheet.column_dimensions[column_letter].width = adjusted_width
-        
+            # ===================== FIN DE LA EDICIÓN ======================
+
         output.seek(0)
 
         return send_file(
@@ -245,52 +256,52 @@ def descargar_asistencias():
     except Exception as e:
         flash(f"Error al generar el reporte: {e}", "danger")
         return redirect(url_for("asistencia.listar_asistencias"))
-    finally:
-        if conn:
-            conn.close()
 
-@asistencia_bp.route("/asistencias/descargar-pdf")
-def descargar_asistencias_pdf():
-    conn = None
-    try:
-        conn = get_connection()
-        cur = conn.cursor(cursor_factory=DictCursor)
-        cur.execute("""
-            SELECT
-                a.id, a.fecha, a.hora_entrada, a.hora_salida,
-                TRIM(CONCAT_WS(' ', t.nombre, t.apellido)) AS trabajador_nombre,
-                a.is_asistencia, a.justificado,
-                COALESCE(a.mensaje, '') AS mensaje_texto,
-                COALESCE(a.categoria, '') AS categoria
-            FROM asistencia a
-            LEFT JOIN trabajador t ON t.id = a.trabajador_id
-            ORDER BY a.fecha DESC, a.id DESC;
-        """)
-        asistencias = cur.fetchall()
-        cur.close()
 
-        if not asistencias:
-            flash("No hay datos para generar el PDF.", "warning")
-            return redirect(url_for("asistencia.listar_asistencias"))
 
-        fecha_actual_str = datetime.now().strftime('%d-%m-%Y %H:%M:%S')
-        html_renderizado = render_template(
-            "asistencia/reporte_pdf.html",
-            asistencias=asistencias,
-            fecha_actual=fecha_actual_str
-        )
 
-        pdf_bytes = HTML(string=html_renderizado).write_pdf()
 
-        return send_file(
-            io.BytesIO(pdf_bytes),
-            mimetype='application/pdf',
-            as_attachment=True,
-            download_name='reporte_asistencias.pdf'
-        )
-    except Exception as e:
-        flash(f"Error al generar el PDF: {e}", "danger")
-        return redirect(url_for("asistencia.listar_asistencias"))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     finally:
         if conn:
             conn.close()
