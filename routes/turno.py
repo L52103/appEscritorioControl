@@ -1,16 +1,13 @@
-# Herramientas de Flask, conexión a BBDD y el nuevo DictCursor
 from flask import Blueprint, request, render_template, redirect, url_for, flash
 from db import get_connection
 from psycopg2.extras import DictCursor
 
-# Creamos el Blueprint para el módulo 'turno'
 turno_bp = Blueprint("turno", __name__, template_folder="../templates")
 
 # Ruta para mostrar la lista de todos los turnos
 @turno_bp.route("/turnos")
 def listar_turnos():
     conn = get_connection()
-    # Usamos DictCursor para obtener resultados con nombres de columna
     cur = conn.cursor(cursor_factory=DictCursor)
     
     # Consulta mejorada con JOIN para obtener el nombre del área de trabajo
@@ -33,7 +30,6 @@ def crear_turno():
         data = request.form
         conn = get_connection()
         cur = conn.cursor(cursor_factory=DictCursor)
-        # Inserta los nuevos datos en la tabla 'turno'
         cur.execute(
             """INSERT INTO turno (horario_inicio, horario_fin, tipo_turno, area_id)
             VALUES (%s, %s, %s, %s)""",
@@ -54,7 +50,6 @@ def editar_turno(id):
 
     if request.method == "POST":
         data = request.form
-        # Actualiza el registro que coincida con el ID
         cur.execute(
             """UPDATE turno SET horario_inicio=%s, horario_fin=%s, tipo_turno=%s, area_id=%s WHERE id=%s""",
             (data["horario_inicio"], data["horo_fin"], data["tipo_turno"], data["area_id"], id)
@@ -77,12 +72,11 @@ def editar_turno(id):
         
     return render_template("turno/editar.html", turno=turno)
 
-# Ruta para eliminar un turno (solo por POST)
+# Ruta para eliminar un turno 
 @turno_bp.route("/turnos/eliminar/<int:id>", methods=["POST"])
 def eliminar_turno(id):
     conn = get_connection()
     cur = conn.cursor(cursor_factory=DictCursor)
-    # Borra el registro que coincida con el ID
     cur.execute("DELETE FROM turno WHERE id=%s", (id,))
     conn.commit()
     cur.close()

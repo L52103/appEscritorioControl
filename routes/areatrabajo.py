@@ -1,16 +1,14 @@
-# Herramientas de Flask, conexión a BBDD y el nuevo DictCursor
+
 from flask import Blueprint, request, render_template, redirect, url_for, flash
 from db import get_connection
 from psycopg2.extras import DictCursor
 
-# Creamos el Blueprint para el módulo 'areatrabajo'
+
 area_bp = Blueprint("areatrabajo", __name__, template_folder="../templates")
 
-# Ruta para mostrar la lista de todas las áreas de trabajo
 @area_bp.route("/areas")
 def listar_areas():
     conn = get_connection()
-    # Usamos DictCursor para obtener resultados con nombres de columna
     cur = conn.cursor(cursor_factory=DictCursor)
     
     # Consulta mejorada con JOIN para obtener el nombre de la sucursal

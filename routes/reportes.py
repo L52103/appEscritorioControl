@@ -1,5 +1,3 @@
-# routes/reportes.py
-
 from flask import Blueprint, render_template, flash, redirect, url_for, send_file
 from db import get_connection
 from psycopg2.extras import DictCursor
@@ -24,9 +22,7 @@ def get_data_for_chart():
     conn = get_connection()
     cur = conn.cursor(cursor_factory=DictCursor)
     
-    # --- CONSULTA SQL MEJORADA ---
-    # La consulta ahora empieza desde una subconsulta de todos los trabajadores y todos los meses,
-    # asegurando que cada trabajador tenga una fila para cada mes, incluso si sus días asistidos son 0.
+
     sql_query = """
         WITH meses AS (
             SELECT DISTINCT TO_CHAR(fecha, 'YYYY-MM') AS anio_mes

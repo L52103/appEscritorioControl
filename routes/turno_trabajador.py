@@ -1,16 +1,13 @@
-# Herramientas de Flask, conexión a BBDD y el nuevo DictCursor
 from flask import Blueprint, request, render_template, redirect, url_for, flash
 from db import get_connection
 from psycopg2.extras import DictCursor
 
-# Creamos el Blueprint para el módulo 'turno_trabajador'
 turno_trabajador_bp = Blueprint("turno_trabajador", __name__, template_folder="../templates")
 
 # Ruta para mostrar la lista de todas las asignaciones
 @turno_trabajador_bp.route("/turnos_trabajadores")
 def listar_turnos_trabajadores():
     conn = get_connection()
-    # Usamos DictCursor para obtener resultados con nombres de columna
     cur = conn.cursor(cursor_factory=DictCursor)
     
     # Consulta mejorada con múltiples JOINs para obtener los nombres del trabajador y el tipo de turno
@@ -39,7 +36,6 @@ def crear_turno_trabajador():
         data = request.form
         conn = get_connection()
         cur = conn.cursor(cursor_factory=DictCursor)
-        # Inserta los nuevos datos en la tabla 'turno_trabajador'
         cur.execute(
             "INSERT INTO turno_trabajador (turno_id, trabajador_id) VALUES (%s, %s)",
             (data["turno_id"], data["trabajador_id"])
@@ -59,7 +55,6 @@ def editar_turno_trabajador(id):
 
     if request.method == "POST":
         data = request.form
-        # Actualiza el registro que coincida con el ID
         cur.execute(
             "UPDATE turno_trabajador SET turno_id=%s, trabajador_id=%s WHERE id=%s",
             (data["turno_id"], data["trabajador_id"], id)
@@ -87,7 +82,6 @@ def editar_turno_trabajador(id):
 def eliminar_turno_trabajador(id):
     conn = get_connection()
     cur = conn.cursor(cursor_factory=DictCursor)
-    # Borra el registro que coincida con el ID
     cur.execute("DELETE FROM turno_trabajador WHERE id=%s", (id,))
     conn.commit()
     cur.close()

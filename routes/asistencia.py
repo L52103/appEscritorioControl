@@ -1,20 +1,16 @@
-# Herramientas de Flask, conexión a BBDD y el nuevo DictCursor
 from flask import Blueprint, render_template, redirect, url_for, flash, send_file
 from db import get_connection
 from gpt4all import GPT4All
 from datetime import datetime, date, timedelta
 import threading
 import re
-# Importamos DictCursor para acceder a los datos por nombre
 from psycopg2.extras import DictCursor
-# Nuevas importaciones para generar el Excel
 import pandas as pd
 import io
 
 
 asistencia_bp = Blueprint("asistencia", __name__, template_folder="../templates")
 
-# _________________ Modulo IA _________________
 _model = None
 _model_lock = threading.Lock()
 
@@ -179,7 +175,7 @@ def procesar_asistencia(asistencia_id):
         except: pass
     return redirect(url_for("asistencia.listar_asistencias"))
 
-# --- RUTA DE DESCARGA DE REPORTE ÚNICO Y COMPLETO (CON CÁLCULO DE HORAS) ---
+#  RUTA DE DESCARGA 
 @asistencia_bp.route("/asistencias/descargar")
 def descargar_asistencias():
     conn = None
@@ -187,7 +183,6 @@ def descargar_asistencias():
         conn = get_connection()
         cur = conn.cursor(cursor_factory=DictCursor)
         
-        # 1. Consulta SQL que trae todas las columnas necesarias
         cur.execute("""
             SELECT
                 a.id,
@@ -216,11 +211,11 @@ def descargar_asistencias():
             flash("No hay datos para exportar.", "warning")
             return redirect(url_for("asistencia.listar_asistencias"))
 
-        # 2. Procesamiento de los datos para el formato del Excel
+        # Procesamiento de los datos para el formato del Excel
         datos_procesados = []
         for reg in registros:
             
-            # --- INICIO DEL CÁLCULO DE HORAS TRABAJADAS ---
+            
             horas_trabajadas_str = "0:00:00" # Valor por defecto
             if reg['hora_entrada'] and reg['hora_salida']:
                 # Combinamos la fecha con las horas para poder restarlas
@@ -228,7 +223,7 @@ def descargar_asistencias():
                 dt_entrada = datetime.combine(fecha_asistencia, reg['hora_entrada'])
                 dt_salida = datetime.combine(fecha_asistencia, reg['hora_salida'])
 
-                # Si la hora de salida es menor, significa que cruzó la medianoche
+                # Si la hora de salida es menor
                 if dt_salida < dt_entrada:
                     dt_salida += timedelta(days=1)
                 
@@ -239,7 +234,6 @@ def descargar_asistencias():
                 hours, remainder = divmod(total_seconds, 3600)
                 minutes, seconds = divmod(remainder, 60)
                 horas_trabajadas_str = f"{hours}:{minutes:02d}:{seconds:02d}"
-            # --- FIN DEL CÁLCULO ---
 
             datos_procesados.append({
                 "ID": reg['id'],
@@ -247,7 +241,7 @@ def descargar_asistencias():
                 "Fecha": reg['fecha'],
                 "Hora Entrada": reg['hora_entrada'],
                 "Hora Salida": reg['hora_salida'],
-                "Horas trabajadas": horas_trabajadas_str, # Usamos el valor calculado
+                "Horas trabajadas": horas_trabajadas_str, 
                 "Asistió": "Sí" if reg['is_asistencia'] else "No",
                 "Atrasado": "Sí" if reg['is_atrasado'] else "No",
                 "Justificado": "Sí" if reg['justificado'] else "No",
@@ -259,14 +253,14 @@ def descargar_asistencias():
                 "Dias": reg['duracion_dias']
             })
 
-        # 3. Creación del archivo Excel con Pandas
+        # Creación del archivo Excel con Pandas
         df = pd.DataFrame(datos_procesados)
 
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine='openpyxl') as writer:
             df.to_excel(writer, index=False, sheet_name='Reporte Completo de Asistencias')
             worksheet = writer.sheets['Reporte Completo de Asistencias']
-            # Auto-ajuste del ancho de las columnas
+            # ajuste del ancho de las columnas
             for column_cells in worksheet.columns:
                 max_length = 0
                 column_letter = column_cells[0].column_letter
@@ -288,7 +282,7 @@ def descargar_asistencias():
         )
     except Exception as e:
         flash(f"Error al generar el reporte: {e}", "danger")
-        print(f"Error detallado en descarga: {e}") # Para depuración en consola
+        print(f"Error detallado en descarga: {e}") 
         return redirect(url_for("asistencia.listar_asistencias"))
     finally:
         if conn:
