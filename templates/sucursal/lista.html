@@ -25,43 +25,39 @@
         <h2 class="mb-4">Gestión de Sucursales</h2>
         <a href="{{ url_for('sucursal.crear_sucursal') }}" class="btn btn-success mb-3">➕ Crear Nueva Sucursal</a>
 
-        <table class="table table-striped table-bordered align-middle">
-            <thead class="table-dark">
-                <tr>
-                    <th>ID</th>
-                    <th>Nombre Sucursal</th>
-                    <th>Dirección</th>
-                    <th>Empresa</th>
-                    <th>Acciones</th>
-                </tr>
-            </thead>
-            <tbody>
-                {# Bucle que recorre la lista de sucursales #}
-                {% for sucursal in sucursales %}
-                <tr>
-                    {# Accedemos a los datos por nombre de columna #}
-                    <td>{{ sucursal['id'] }}</td>
-                    <td>{{ sucursal['nombre'] }}</td>
-                    <td>{{ sucursal['direccion'] }}</td>
-                    {# Mostramos el nombre de la empresa obtenido con el JOIN #}
-                    {# Usamos 'or' como valor por defecto si no tuviera empresa asignada #}
-                    <td>{{ sucursal['empresa_nombre'] or 'N/A' }} (ID: {{ sucursal['empresa_id'] }})</td>
-                    <td>
-                        {# Generamos los enlaces de acciones usando el ID de la sucursal #}
-                        <a href="{{ url_for('sucursal.editar_sucursal', id=sucursal['id']) }}" class="btn btn-sm btn-primary me-2">✏️ Editar</a>
-                        <form action="{{ url_for('sucursal.eliminar_sucursal', id=sucursal['id']) }}" method="post"
-                            style="display:inline;" onsubmit="return confirm('¿Confirmas la eliminación?');">
-                            <button type="submit" class="btn btn-sm btn-danger">🗑️ Eliminar</button>
-                        </form>
-                    </td>
-                </tr>
-                {% else %}
-                <tr>
-                    <td colspan="5" class="text-center">No hay sucursales registradas.</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+        <div class="table-responsive">
+            <table class="table table-hover table-bordered table-striped align-middle shadow-sm">
+                <thead class="table-primary text-center">
+                    <tr>
+                        <th>ID</th>
+                        <th>Nombre Sucursal</th>
+                        <th>Dirección</th>
+                        <th>Empresa</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for sucursal in sucursales %}
+                    <tr>
+                        <td class="text-center">{{ sucursal['id'] }}</td>
+                        <td>{{ sucursal['nombre'] }}</td>
+                        <td>{{ sucursal['direccion'] }}</td>
+                        <td>{{ sucursal['empresa_nombre'] or 'N/A' }} <small class="text-muted">(ID: {{ sucursal['empresa_id'] }})</small></td>
+                        <td class="text-center text-nowrap">
+                            <a href="{{ url_for('sucursal.editar_sucursal', id=sucursal['id']) }}" class="btn btn-sm btn-outline-primary me-2">✏️ Editar</a>
+                            <form action="{{ url_for('sucursal.eliminar_sucursal', id=sucursal['id']) }}" method="post" class="d-inline" onsubmit="return confirm('¿Confirmas la eliminación?');">
+                                <button type="submit" class="btn btn-sm btn-outline-danger">🗑️ Eliminar</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5" class="text-center text-muted">No hay sucursales registradas.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </main>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>

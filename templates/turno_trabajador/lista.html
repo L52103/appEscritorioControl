@@ -8,89 +8,57 @@
 </head>
 
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-primary mb-4">
-        <div class="container">
-            <a class="navbar-brand" href="{{ url_for('index') }}">Control Asistencia</a>
-
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCentered"
-                aria-controls="navbarCentered" aria-expanded="false" aria-label="Toggle navigation">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-
-            <div class="collapse navbar-collapse justify-content-center" id="navbarCentered">
-                <ul class="navbar-nav">
-                    <li class="nav-item">
-                        <a class="nav-link {% if active_page == 'empresas' %}active{% endif %}"
-                            href="{{ url_for('empresa.listar_empresas') }}">Empresas</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link {% if active_page == 'sucursales' %}active{% endif %}"
-                            href="{{ url_for('sucursal.listar_sucursales') }}">Sucursales</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link {% if active_page == 'areas' %}active{% endif %}"
-                            href="{{ url_for('areatrabajo.listar_areas') }}">Áreas de Trabajo</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link {% if active_page == 'trabajadores' %}active{% endif %}"
-                            href="{{ url_for('trabajador.listar_trabajadores') }}">Trabajadores</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link {% if active_page == 'asistencias' %}active{% endif %}"
-                            href="{{ url_for('asistencia.listar_asistencias') }}">Asistencias</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link {% if active_page == 'turnos' %}active{% endif %}"
-                            href="{{ url_for('turno.listar_turnos') }}">Turnos</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link {% if active_page == 'turno_trabajador' %}active{% endif %}"
-                            href="{{ url_for('turno_trabajador.listar_turnos_trabajadores') }}">Turno-Trabajador</a>
-                    </li>
-                </ul>
-            </div>
-        </div>
-    </nav>
+    <div class="dropdown position-absolute top-0 start-0 m-3">
+        <button class="btn btn-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+            ☰ Menú
+        </button>
+        <ul class="dropdown-menu">
+            <li><a class="dropdown-item {% if active_page == 'empresas' %}active{% endif %}" href="{{ url_for('empresa.listar_empresas') }}">🏢 Empresas</a></li>
+            <li><a class="dropdown-item {% if active_page == 'sucursales' %}active{% endif %}" href="{{ url_for('sucursal.listar_sucursales') }}">📍 Sucursales</a></li>
+            <li><a class="dropdown-item {% if active_page == 'areas' %}active{% endif %}" href="{{ url_for('areatrabajo.listar_areas') }}">🛠️ Áreas de Trabajo</a></li>
+            <li><a class="dropdown-item {% if active_page == 'trabajadores' %}active{% endif %}" href="{{ url_for('trabajador.listar_trabajadores') }}">👷 Trabajadores</a></li>
+            <li><a class="dropdown-item {% if active_page == 'asistencias' %}active{% endif %}" href="{{ url_for('asistencia.listar_asistencias') }}">📅 Asistencias</a></li>
+            <li><a class="dropdown-item {% if active_page == 'turnos' %}active{% endif %}" href="{{ url_for('turno.listar_turnos') }}">⏰ Turnos</a></li>
+            <li><a class="dropdown-item {% if active_page == 'turno_trabajador' %}active{% endif %}" href="{{ url_for('turno_trabajador.listar_turnos_trabajadores') }}">🔄 Turno-Trabajador</a></li>
+            <li><a class="dropdown-item {% if active_page == 'index' %}active{% endif %}" href="{{ url_for('index') }}">Volver al inicio</a></li>
+        </ul>
+    </div>
     <main class="container mt-4">
         <h2 class="mb-4">Asignaciones de Turnos a Trabajadores</h2>
         <a href="{{ url_for('turno_trabajador.crear_turno_trabajador') }}" class="btn btn-success mb-3">➕ Asignar
             Turno</a>
 
-        <table class="table table-striped table-bordered align-middle">
-            <thead class="table-dark">
-                <tr>
-                    <th>ID Registro</th>
-                    <th>Trabajador</th>
-                    <th>Tipo de Turno</th>
-                    <th>Acciones</th>
-                </tr>
-            </thead>
-            <tbody>
-                {# Bucle que recorre la lista de registros #}
-                {% for registro in registros %}
-                <tr>
-                    {# Accedemos a los datos por nombre de columna #}
-                    <td>{{ registro['id'] }}</td>
-                    <td>{{ registro['trabajador_nombre'] or 'N/A' }} (ID: {{ registro['trabajador_id'] }})</td>
-                    <td>{{ registro['tipo_turno'] or 'N/A' }} (ID: {{ registro['turno_id'] }})</td>
-                    <td>
-                        {# Generamos los enlaces de acciones usando el ID del registro #}
-                        <a href="{{ url_for('turno_trabajador.editar_turno_trabajador', id=registro['id']) }}"
-                            class="btn btn-sm btn-primary me-2">✏️ Editar</a>
-                        <form action="{{ url_for('turno_trabajador.eliminar_turno_trabajador', id=registro['id']) }}"
-                            method="post" style="display:inline;"
-                            onsubmit="return confirm('¿Confirmas la eliminación?');">
-                            <button type="submit" class="btn btn-sm btn-danger">🗑️ Eliminar</button>
-                        </form>
-                    </td>
-                </tr>
-                {% else %}
-                <tr>
-                    <td colspan="4" class="text-center">No hay asignaciones registradas.</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+        <div class="table-responsive">
+            <table class="table table-hover table-bordered table-striped align-middle shadow-sm">
+                <thead class="table-primary text-center">
+                    <tr>
+                        <th>ID Registro</th>
+                        <th>Trabajador</th>
+                        <th>Tipo de Turno</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for registro in registros %}
+                    <tr>
+                        <td class="text-center">{{ registro['id'] }}</td>
+                        <td>{{ registro['trabajador_nombre'] or 'N/A' }} <small class="text-muted">(ID: {{ registro['trabajador_id'] }})</small></td>
+                        <td>{{ registro['tipo_turno'] or 'N/A' }} <small class="text-muted">(ID: {{ registro['turno_id'] }})</small></td>
+                        <td class="text-center text-nowrap">
+                            <a href="{{ url_for('turno_trabajador.editar_turno_trabajador', id=registro['id']) }}" class="btn btn-sm btn-outline-primary me-2">✏️ Editar</a>
+                            <form action="{{ url_for('turno_trabajador.eliminar_turno_trabajador', id=registro['id']) }}" method="post" class="d-inline" onsubmit="return confirm('¿Confirmas la eliminación?');">
+                                <button type="submit" class="btn btn-sm btn-outline-danger">🗑️ Eliminar</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="4" class="text-center text-muted">No hay asignaciones registradas.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </main>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>

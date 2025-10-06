@@ -52,8 +52,8 @@
             </div>
         </div>
         <div class="table-responsive">
-            <table class="table table-striped table-bordered align-middle">
-                <thead class="table-dark">
+            <table class="table table-hover table-bordered table-striped align-middle shadow-sm">
+                <thead class="table-primary text-center">
                     <tr>
                         <th>ID</th>
                         <th>Fecha</th>
@@ -72,32 +72,28 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {# Bucle que recorre la lista de asistencias #}
                     {% for a in asistencias %}
                     <tr>
-                        {# Accedemos a los datos por nombre de columna #}
-                        <td>{{ a['id'] }}</td>
-                        <td>{{ a['fecha'] }}</td>
-                        <td>{{ a['hora_entrada'] }}</td>
-                        <td>{{ a['hora_salida'] }}</td>
-                        <td>
-                            [{{ a['trabajador_id'] }}] {{ a['trabajador_nombre'] or '—' }}
-                        </td>
-                        <td>
+                        <td class="text-center">{{ a['id'] }}</td>
+                        <td class="text-center">{{ a['fecha'] }}</td>
+                        <td class="text-center">{{ a['hora_entrada'] }}</td>
+                        <td class="text-center">{{ a['hora_salida'] }}</td>
+                        <td>[{{ a['trabajador_id'] }}] {{ a['trabajador_nombre'] or '—' }}</td>
+                        <td class="text-center">
                             {% if a['is_asistencia'] %}
                             <span class="badge text-bg-success">Sí</span>
                             {% else %}
                             <span class="badge text-bg-danger">No</span>
                             {% endif %}
                         </td>
-                        <td>
+                        <td class="text-center">
                             {% if a['justificado'] %}
                             <span class="badge text-bg-primary">Sí</span>
                             {% else %}
                             <span class="badge text-bg-warning">No</span>
                             {% endif %}
                         </td>
-                        <td>
+                        <td class="text-center">
                             {% if a['procesado_ia'] %}
                             <span class="badge text-bg-success">Sí</span>
                             {% else %}
@@ -105,18 +101,15 @@
                             {% endif %}
                         </td>
                         <td style="max-width: 320px;">
-                            <div class="text-truncate" title="{{ a['mensaje_texto'] or '' }}">{{ a['mensaje_texto'] or
-                                '—' }}</div>
+                            <div class="text-truncate" title="{{ a['mensaje_texto'] or '' }}">{{ a['mensaje_texto'] or '—' }}</div>
                         </td>
                         <td>{{ a['categoria'] or '—' }}</td>
-                        <td>{{ a['fecha_inicio_inasistencia'] or '—' }}</td>
-                        <td>{{ a['fecha_fin_inasistencia'] or '—' }}</td>
-                        <td>{{ a['duracion_dias'] or '—' }}</td>
-                        <td class="text-nowrap">
-                            {# El botón solo se activa si es una inasistencia y no ha sido procesada #}
+                        <td class="text-center">{{ a['fecha_inicio_inasistencia'] or '—' }}</td>
+                        <td class="text-center">{{ a['fecha_fin_inasistencia'] or '—' }}</td>
+                        <td class="text-center">{{ a['duracion_dias'] or '—' }}</td>
+                        <td class="text-center text-nowrap">
                             {% if not a['is_asistencia'] and not a['procesado_ia'] %}
-                            <form action="{{ url_for('asistencia.procesar_asistencia', asistencia_id=a['id']) }}"
-                                method="POST" class="d-inline">
+                            <form action="{{ url_for('asistencia.procesar_asistencia', asistencia_id=a['id']) }}" method="POST" class="d-inline">
                                 <button type="submit" class="btn btn-sm btn-outline-primary">Procesar</button>
                             </form>
                             {% else %}
@@ -126,7 +119,7 @@
                     </tr>
                     {% else %}
                     <tr>
-                        <td colspan="14" class="text-center">No hay asistencias registradas.</td>
+                        <td colspan="14" class="text-center text-muted">No hay asistencias registradas.</td>
                     </tr>
                     {% endfor %}
                 </tbody>

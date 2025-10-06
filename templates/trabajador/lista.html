@@ -23,45 +23,52 @@
         </ul>
     </div>
     <main class="container mt-4">
-        <h2 class="mb-4">Trabajadores</h2>
+        <h2 class="mb-4">Gestión de Trabajadores</h2>
         <a href="{{ url_for('trabajador.crear_trabajador') }}" class="btn btn-success mb-3">➕ Crear nuevo trabajador</a>
 
-        <table class="table table-striped table-bordered align-middle">
-            <thead class="table-dark">
-                <tr>
-                    <th>ID</th>
-                    <th>Nombre</th>
-                    <th>Apellido</th>
-                    <th>RUT</th>
-                    <th>Email</th>
-                    <th>Admin</th>
-                    <th>Acciones</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for trabajador in trabajadores %}
-                <tr>
-                    <td>{{ trabajador[0] }}</td>
-                    <td>{{ trabajador[1] }}</td>
-                    <td>{{ trabajador[2] }}</td>
-                    <td>{{ trabajador[3] }}</td>
-                    <td>{{ trabajador[7] }}</td>
-                    <td>{{ 'Sí' if trabajador[9] else 'No' }}</td>
-                    <td>
-                        <a href="{{ url_for('trabajador.editar_trabajador', id=trabajador[0]) }}" class="btn btn-sm btn-primary me-2">✏️ Editar</a>
-                        <form action="{{ url_for('trabajador.eliminar_trabajador', id=trabajador[0]) }}" method="post"
-                            style="display:inline;" onsubmit="return confirm('¿Seguro que quieres eliminar este trabajador?');">
-                            <button type="submit" class="btn btn-sm btn-danger">🗑️ Eliminar</button>
-                        </form>
-                    </td>
-                </tr>
-                {% else %}
-                <tr>
-                    <td colspan="7" class="text-center">No hay trabajadores registrados.</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+        <div class="table-responsive">
+            <table class="table table-hover table-bordered table-striped align-middle shadow-sm">
+                <thead class="table-primary text-center">
+                    <tr>
+                        <th>ID</th>
+                        <th>Nombre</th>
+                        <th>Apellido</th>
+                        <th>RUT</th>
+                        <th>Email</th>
+                        <th>Admin</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for trabajador in trabajadores %}
+                    <tr>
+                        <td class="text-center">{{ trabajador[0] }}</td>
+                        <td>{{ trabajador[1] }}</td>
+                        <td>{{ trabajador[2] }}</td>
+                        <td class="text-center">{{ trabajador[3] }}</td>
+                        <td>{{ trabajador[7] }}</td>
+                        <td class="text-center">
+                            {% if trabajador[9] %}
+                            <span class="badge text-bg-success">Sí</span>
+                            {% else %}
+                            <span class="badge text-bg-secondary">No</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center text-nowrap">
+                            <a href="{{ url_for('trabajador.editar_trabajador', id=trabajador[0]) }}" class="btn btn-sm btn-outline-primary me-2">✏️ Editar</a>
+                            <form action="{{ url_for('trabajador.eliminar_trabajador', id=trabajador[0]) }}" method="post" class="d-inline" onsubmit="return confirm('¿Seguro que quieres eliminar este trabajador?');">
+                                <button type="submit" class="btn btn-sm btn-outline-danger">🗑️ Eliminar</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" class="text-center text-muted">No hay trabajadores registrados.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </main>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
