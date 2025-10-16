@@ -13,6 +13,7 @@ from routes.asistencia import asistencia_bp
 from routes.turno import turno_bp
 from routes.turno_trabajador import turno_trabajador_bp
 from routes.reportes import reportes_bp 
+from routes.sueldos import sueldos_bp
 
 app = Flask(__name__)
 
@@ -27,7 +28,7 @@ app.register_blueprint(asistencia_bp)
 app.register_blueprint(turno_bp)
 app.register_blueprint(turno_trabajador_bp)
 app.register_blueprint(reportes_bp) 
-
+app.register_blueprint(sueldos_bp)
 @app.route("/")
 def index():
     return render_template("index.html")
