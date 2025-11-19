@@ -170,10 +170,10 @@ def entrenar_y_predecir_inasistencias():
             elif dias_restantes < 15:
                 riesgo_texto = "Medio"
         else:
-             fecha_inicio_estimada = datetime.now() + timedelta(days=30) # Default si no hay datos
+             fecha_inicio_estimada = datetime.now() + timedelta(days=30) 
              riesgo_texto = "Sin historial suficiente"
 
-        # --- 2. CÁLCULO DE DURACIÓN (Días) ---
+        # 2. CÁLCULO DE DURACIÓN 
         dias_duracion_est = 1.0
         if rf_model:
             try:
@@ -204,7 +204,7 @@ def entrenar_y_predecir_inasistencias():
         resultados.append({
             "Trabajador": nombre,
             "Estado Riesgo": riesgo_texto,
-            "Fechas Exactas Estimadas": rango_texto, # Columna nueva limpia
+            "Fechas Exactas Estimadas": rango_texto, 
             "Días Totales": duracion_entero,
             "Frecuencia Histórica": f"Falta cada {int(promedio_dias_entre_faltas)} días" if len(w_data) >= 2 else "N/A"
         })
