@@ -7,10 +7,18 @@ import re
 from psycopg2.extras import DictCursor
 import pandas as pd
 import io
+import numpy as np
+import os
 
+# --- LIBRERIAS DE MACHINE LEARNING ---
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.preprocessing import LabelEncoder
 
-asistencia_bp = Blueprint("asistencia", __name__, template_folder="../templates")
+asistencia_bp = Blueprint("asistencia", __name__)
 
+# ==========================================
+# 1. MÓDULO DE IA GENERATIVA (Chatbot)
+# ==========================================
 _model = None
 _model_lock = threading.Lock()
 
@@ -19,271 +27,327 @@ def get_model():
     if _model is None:
         with _model_lock:
             if _model is None:
-                _model = GPT4All("mistral-7b-instruct-v0.1.Q4_0.gguf", device="cpu")
+                # Prioridad: Modelo Rápido > Modelo Lento
+                modelo_rapido = "tinyllama-1.1b-chat-v1.0.Q4_0.gguf"
+                modelo_lento = "mistral-7b-instruct-v0.1.Q4_0.gguf"
+                
+                if os.path.exists(modelo_rapido):
+                    _model = GPT4All(modelo_rapido, device="cpu")
+                elif os.path.exists(modelo_lento):
+                    print(f"Usando modelo lento: {modelo_lento}")
+                    _model = GPT4All(modelo_lento, device="cpu")
+                else:
+                    try: _model = GPT4All(modelo_rapido, device="cpu")
+                    except: _model = GPT4All(modelo_lento, device="cpu")
     return _model
 
 def resumir_mensaje(mensaje: str) -> str:
     model = get_model()
+    # Prompt corto para velocidad
     prompt = f"""
-    eres un administrador que debe describir de la mejor manera la inasistencia de un empleado, Resume de forma breve y clara este mensaje en ESPAÑOL para usarlo como motivo en una tabla de inasistencias,
-    corrigiendo errores ortográficos y manteniendo el contexto: "{mensaje}".
-    Solo responde con el texto resumido en español, sin explicaciones, y omite groserías si las hay, no coloques comillas y de ser posible resume el texto inicial para hacerlo mas simple sin perder contexto.
+    Tarea: Resumir inasistencia para RRHH.
+    Ejemplos:
+    "Choqué" -> Accidente vehicular.
+    "Fiebre" -> Salud.
+    Mensaje: "{mensaje}"
+    Resumen:
     """
-    with _model_lock:
-        with model.chat_session():
-            out = model.generate(prompt, max_tokens=50, temp=0.0)
-    out = (out or "").strip()
-    return out or "Inasistencia sin justificar por parte del trabajador."
+    try:
+        with _model_lock:
+            with model.chat_session():
+                out = model.generate(prompt, max_tokens=25, temp=0.1)
+        limpio = (out or "").strip()
+        if "Resumen:" in limpio: limpio = limpio.split("Resumen:")[-1].strip()
+        return limpio or "Inasistencia sin detalle."
+    except:
+        return "Inasistencia sin justificar."
 
 def detectar_categoria(mensaje_resumido: str) -> str:
     m = (mensaje_resumido or "").lower()
-    if any(x in m for x in ['accidente', 'choque', 'lesión', 'lesion','herida', 'golpe', 'corte', 'caida']):
-        return 'accidente'
-    if any(x in m for x in ['médico', 'medico','medica', 'hospital', 'doctor', 'licencia', 'medicamento', 'inyección', 'vacuna', 'médica']):
-        return 'medico'
-    if any(x in m for x in ['familiar', 'familia', 'compromiso familiar', 'duelo','padre', 'madre', 'hermano', 'hermana', 'hijo', 'hija', 'abuelo', 'abuela' ]):
-        return 'asunto familiar'
-    if any(x in m for x in ['personal', 'asunto personal', 'trámite', 'tramite', 'permiso', 'problema']):
-        return 'asunto personal'
+    cats = {
+        'accidente': ['accidente', 'choque', 'lesión', 'caida', 'siniestro'],
+        'medico': ['médico', 'doctor', 'salud', 'enfermedad', 'licencia', 'dolor', 'hospital'],
+        'asunto familiar': ['familiar', 'hijo', 'funeral', 'duelo', 'madre', 'padre'],
+        'asunto personal': ['personal', 'trámite', 'banco', 'mudanza', 'notaría']
+    }
+    for cat, kws in cats.items():
+        if any(k in m for k in kws): return cat
     return 'otros'
 
-NUMEROS_PALABRA = {
-    "un": 1, "uno": 1, "dos": 2, "tres": 3, "cuatro": 4, "cinco": 5,
-    "seis": 6, "siete": 7, "ocho": 8, "nueve": 9, "diez": 10
-}
+# ==========================================
+# 2. UTILIDADES (Fechas/Regex)
+# ==========================================
+NUMEROS_PALABRA = {"un": 1, "uno": 1, "dos": 2, "tres": 3, "cuatro": 4, "cinco": 5}
 
 def extraer_fechas(mensaje: str, anio_por_defecto: int):
-    fechas_txt = re.findall(r'(\d{1,2}/\d{1,2}(?:/\d{2,4})?)', mensaje or "")
+    fechas_txt = re.findall(r'(\d{1,2}[/-]\d{1,2}(?:[/-]\d{2,4})?)', mensaje or "")
     fechas = []
     for f in fechas_txt:
         try:
-            if len(f.split('/')) == 2:
-                f = f"{f}/{anio_por_defecto}"
+            f = f.replace('-', '/')
+            if len(f.split('/')) == 2: f = f"{f}/{anio_por_defecto}"
             fechas.append(datetime.strptime(f, "%d/%m/%Y").date())
-        except Exception:
-            continue
+        except: continue
     return fechas
 
 def extraer_dias(mensaje: str):
     msg = (mensaje or "").lower()
     m = re.search(r'(\d+)\s*d[ií]as?', msg)
-    if m:
-        return int(m.group(1))
-    for palabra, valor in NUMEROS_PALABRA.items():
-        if re.search(rf'\b{palabra}\s*d[ií]as?\b', msg):
-            return valor
+    if m: return int(m.group(1))
+    for p, v in NUMEROS_PALABRA.items():
+        if re.search(rf'\b{p}\s*d[ií]as?\b', msg): return v
     return None
 
 def calcular_rango(mensaje: str, fecha_dialogo: date):
     fechas = extraer_fechas(mensaje, fecha_dialogo.year)
     dias = extraer_dias(mensaje)
-
     if len(fechas) >= 2:
-        f1, f2 = fechas[0], fechas[1]
-        if f2 < f1:
-            f1, f2 = f2, f1
-        dur = (f2 - f1).days + 1
-        return f1, f2, dur
-
+        f1, f2 = sorted(fechas)[:2]
+        return f1, f2, (f2 - f1).days + 1
     if len(fechas) == 1:
         f = fechas[0]
+        if dias and dias > 1: return f, f + timedelta(days=dias - 1), dias
         return f, f, 1
-
     if dias and dias > 0:
-        ini = fecha_dialogo
-        fin = fecha_dialogo + timedelta(days=dias - 1)
-        return ini, fin, dias
-
+        return fecha_dialogo, fecha_dialogo + timedelta(days=dias - 1), dias
     return fecha_dialogo, fecha_dialogo, 1
 
+# ==========================================
+# 3. MÓDULO DE PREDICCIÓN (ML) - MEJORADO
+# ==========================================
+def entrenar_y_predecir_inasistencias():
+    conn = get_connection()
+    try:
+        query = """
+            SELECT trabajador_id, fecha, categoria, duracion_dias, 
+                   EXTRACT(DOW FROM fecha) as dia_semana,
+                   EXTRACT(MONTH FROM fecha) as mes
+            FROM asistencia 
+            WHERE is_asistencia = FALSE AND justificado = TRUE
+            ORDER BY fecha ASC
+        """
+        df = pd.read_sql(query, conn)
+        df_trabajadores = pd.read_sql("SELECT id, nombre, apellido FROM trabajador", conn)
+        df_trabajadores['nombre_completo'] = df_trabajadores['nombre'] + " " + df_trabajadores['apellido']
+    finally:
+        conn.close()
+
+    if df.empty: return []
+
+    le_cat = LabelEncoder()
+    rf_model = None
+    
+    if len(df) > 5:
+        df['cat_encoded'] = le_cat.fit_transform(df['categoria'].astype(str))
+        X = df[['trabajador_id', 'dia_semana', 'mes', 'cat_encoded']].fillna(0)
+        y = df['duracion_dias'].fillna(1)
+        rf_model = RandomForestRegressor(n_estimators=50, random_state=42)
+        rf_model.fit(X, y)
+
+    unique_workers = df['trabajador_id'].unique()
+    resultados = []
+    
+    for tid in unique_workers:
+        w_data = df[df['trabajador_id'] == tid].sort_values('fecha')
+        nombre = df_trabajadores[df_trabajadores['id'] == tid]['nombre_completo'].iloc[0]
+        
+        # --- 1. CÁLCULO DE FECHA DE INICIO ---
+        riesgo_texto = "Bajo"
+        promedio_dias_entre_faltas = 0
+        fecha_inicio_estimada = None
+        
+        if len(w_data) >= 2:
+            w_data['fecha'] = pd.to_datetime(w_data['fecha'])
+            diferencias = w_data['fecha'].diff().dt.days.dropna()
+            promedio_dias_entre_faltas = diferencias.mean()
+            
+            # Proyectamos la próxima fecha sumando el promedio a la última falta
+            ultima_falta = w_data['fecha'].iloc[-1]
+            fecha_inicio_estimada = ultima_falta + timedelta(days=promedio_dias_entre_faltas)
+            
+            # Lógica de Riesgo
+            dias_restantes = (fecha_inicio_estimada - datetime.now()).days
+            
+            if fecha_inicio_estimada < datetime.now():
+                riesgo_texto = "⚠️ ALTO (Atrasado)"
+                # Si ya pasó, asumimos que el riesgo es hoy
+                # fecha_inicio_estimada = datetime.now() # Descomentar si quieres ajustar al día actual
+            elif dias_restantes < 7:
+                riesgo_texto = "Alto"
+            elif dias_restantes < 15:
+                riesgo_texto = "Medio"
+        else:
+             fecha_inicio_estimada = datetime.now() + timedelta(days=30) # Default si no hay datos
+             riesgo_texto = "Sin historial suficiente"
+
+        # --- 2. CÁLCULO DE DURACIÓN (Días) ---
+        dias_duracion_est = 1.0
+        if rf_model:
+            try:
+                mañana = date.today() + timedelta(days=1)
+                cat_moda = w_data['categoria'].mode()[0] if not w_data['categoria'].empty else 'otros'
+                cat_code = le_cat.transform([cat_moda])[0] if cat_moda in le_cat.classes_ else 0
+                dias_duracion_est = rf_model.predict(pd.DataFrame([[tid, mañana.weekday(), mañana.month, cat_code]], columns=['trabajador_id', 'dia_semana', 'mes', 'cat_encoded']))[0]
+            except: dias_duracion_est = w_data['duracion_dias'].mean()
+        else:
+             dias_duracion_est = w_data['duracion_dias'].mean() if not w_data.empty else 1
+
+        # --- 3. FORMATO DE SALIDA (Fechas Exactas) ---
+        duracion_entero = int(round(dias_duracion_est))
+        if duracion_entero < 1: duracion_entero = 1
+        
+        # Calculamos Fecha Fin
+        fecha_fin_estimada = fecha_inicio_estimada + timedelta(days=duracion_entero - 1)
+        
+        # String legible
+        str_inicio = fecha_inicio_estimada.strftime("%d/%m/%Y")
+        str_fin = fecha_fin_estimada.strftime("%d/%m/%Y")
+        
+        if duracion_entero > 1:
+            rango_texto = f"{str_inicio} al {str_fin}"
+        else:
+            rango_texto = f"{str_inicio}"
+
+        resultados.append({
+            "Trabajador": nombre,
+            "Estado Riesgo": riesgo_texto,
+            "Fechas Exactas Estimadas": rango_texto, # Columna nueva limpia
+            "Días Totales": duracion_entero,
+            "Frecuencia Histórica": f"Falta cada {int(promedio_dias_entre_faltas)} días" if len(w_data) >= 2 else "N/A"
+        })
+        
+    return resultados
+
+# ==========================================
+# 4. RUTAS
+# ==========================================
 @asistencia_bp.route("/asistencias", methods=["GET"])
 def listar_asistencias():
-    conn = None
+    conn = get_connection()
     try:
-        conn = get_connection()
         cur = conn.cursor(cursor_factory=DictCursor)
         cur.execute("""
-            SELECT
-                a.id, a.fecha, a.hora_entrada, a.hora_salida, a.trabajador_id,
-                TRIM(CONCAT_WS(' ', t.nombre, t.apellido)) AS trabajador_nombre,
-                a.is_asistencia, a.justificado, a.procesado_ia,
-                COALESCE(a.mensaje, '') AS mensaje_texto,
-                COALESCE(a.categoria, '') AS categoria,
-                a.fecha_inicio_inasistencia, a.fecha_fin_inasistencia, a.duracion_dias
-            FROM asistencia a
-            LEFT JOIN trabajador t ON t.id = a.trabajador_id
+            SELECT a.id, a.fecha, a.hora_entrada, a.hora_salida, 
+                   TRIM(CONCAT_WS(' ', t.nombre, t.apellido)) AS trabajador_nombre,
+                   a.is_asistencia, a.justificado, a.procesado_ia,
+                   COALESCE(a.mensaje, '') AS mensaje_texto, COALESCE(a.categoria, '') AS categoria,
+                   a.duracion_dias
+            FROM asistencia a LEFT JOIN trabajador t ON t.id = a.trabajador_id
             ORDER BY a.fecha DESC, a.id DESC;
         """)
-        asistencias = cur.fetchall()
-        cur.close()
-        return render_template("asistencia/lista.html", asistencias=asistencias)
-    finally:
-        if conn:
-            conn.close()
+        return render_template("asistencia/lista.html", asistencias=cur.fetchall())
+    finally: conn.close()
 
-@asistencia_bp.route("/asistencias/<int:asistencia_id>/procesar", methods=["POST"])
-def procesar_asistencia(asistencia_id):
+@asistencia_bp.route("/predicciones", methods=["GET"])
+def dashboard_predicciones():
+    try: return render_template("asistencia/predicciones.html", predicciones=entrenar_y_predecir_inasistencias())
+    except Exception as e: return f"Error: {e}"
+
+@asistencia_bp.route("/asistencias/<int:id>/procesar", methods=["POST"])
+def procesar_asistencia(id):
     conn = get_connection()
     cur = conn.cursor(cursor_factory=DictCursor)
     try:
-        cur.execute("""
-            SELECT id, fecha, is_asistencia, justificado, procesado_ia, COALESCE(mensaje, '') as mensaje, trabajador_id
-            FROM asistencia
-            WHERE id = %s
-            FOR UPDATE;
-        """, (asistencia_id,))
+        cur.execute("SELECT * FROM asistencia WHERE id = %s FOR UPDATE", (id,))
         row = cur.fetchone()
-
-        if not row:
-            flash("Asistencia no encontrada.", "warning")
-            conn.rollback()
-            return redirect(url_for("asistencia.listar_asistencias"))
-
-        if row['is_asistencia']:
-            flash("No se procesa: es un registro de asistencia (no inasistencia).", "info")
-            conn.rollback()
-            return redirect(url_for("asistencia.listar_asistencias"))
-
-        if row['procesado_ia']:
-            flash("Ya fue procesado por IA.", "info")
-            conn.rollback()
-            return redirect(url_for("asistencia.listar_asistencias"))
-
+        if not row or row['is_asistencia'] or row['procesado_ia']: return redirect(url_for("asistencia.listar_asistencias"))
+        
+        msg = row['mensaje'] or ""
         if not row['justificado']:
-            mensaje_proc = "Inasistencia sin justificar por parte del trabajador."
-            categoria = "otros"
-            ini, fin, dur = row['fecha'], row['fecha'], 1
+            res, cat, ini, fin, dur = "Inasistencia sin justificar.", "otros", row['fecha'], row['fecha'], 1
         else:
-            mensaje_proc = resumir_mensaje(row['mensaje'] or "")
-            categoria    = detectar_categoria(mensaje_proc)
-            ini, fin, dur = calcular_rango(row['mensaje'] or mensaje_proc, fecha_dialogo=row['fecha'])
+            res = resumir_mensaje(msg)
+            cat = detectar_categoria(res)
+            ini, fin, dur = calcular_rango(msg, row['fecha'])
 
-        cur.execute("""
-            UPDATE asistencia
-            SET mensaje = %s, categoria = %s, fecha_inicio_inasistencia = %s,
-                fecha_fin_inasistencia = %s, duracion_dias = %s, procesado_ia = TRUE
-            WHERE id = %s;
-        """, (mensaje_proc, categoria, ini, fin, dur, asistencia_id))
-        conn.commit()
-        flash("Asistencia procesada con IA y métricas registradas.", "success")
-    except Exception as e:
-        try: conn.rollback()
-        except: pass
-        flash(f"Error al procesar: {e}", "danger")
-    finally:
-        try: cur.close(); conn.close()
-        except: pass
+        cur.execute("UPDATE asistencia SET mensaje=%s, categoria=%s, fecha_inicio_inasistencia=%s, fecha_fin_inasistencia=%s, duracion_dias=%s, procesado_ia=TRUE WHERE id=%s", (res, cat, ini, fin, dur, id))
+        conn.commit(); flash("Procesado.", "success")
+    except Exception as e: conn.rollback(); flash(f"Error: {e}", "danger")
+    finally: conn.close()
     return redirect(url_for("asistencia.listar_asistencias"))
 
-#  RUTA DE DESCARGA 
+# --- RUTA DE DESCARGA ACTUALIZADA ---
 @asistencia_bp.route("/asistencias/descargar")
 def descargar_asistencias():
-    conn = None
+    conn = get_connection()
     try:
-        conn = get_connection()
+        # 1. DATOS HISTÓRICOS
         cur = conn.cursor(cursor_factory=DictCursor)
-        
         cur.execute("""
-            SELECT
-                a.id,
-                TRIM(CONCAT_WS(' ', t.nombre, t.apellido)) AS trabajador,
-                a.fecha,
-                a.hora_entrada,
-                a.hora_salida,
-                a.is_asistencia,
-                a.is_atrasado,
-                a.justificado,
-                a.procesado_ia,
-                a.mensaje,
-                a.categoria,
-                a.fecha_inicio_inasistencia,
-                a.fecha_fin_inasistencia,
-                a.duracion_dias
-            FROM asistencia a
-            LEFT JOIN trabajador t ON t.id = a.trabajador_id
-            ORDER BY a.fecha DESC, a.id DESC;
+            SELECT a.id, TRIM(CONCAT_WS(' ', t.nombre, t.apellido)) AS trabajador,
+                   a.fecha, a.hora_entrada, a.hora_salida, a.is_asistencia,
+                   a.mensaje, a.categoria, a.duracion_dias, a.is_atrasado, a.justificado, a.procesado_ia
+            FROM asistencia a LEFT JOIN trabajador t ON t.id = a.trabajador_id
+            ORDER BY a.fecha DESC
         """)
-        
         registros = cur.fetchall()
-        cur.close()
-
+        
         if not registros:
-            flash("No hay datos para exportar.", "warning")
+            flash("No hay datos.", "warning")
             return redirect(url_for("asistencia.listar_asistencias"))
 
-        # Procesamiento de los datos para el formato del Excel
-        datos_procesados = []
+        datos_hist = []
         for reg in registros:
-            
-            
-            horas_trabajadas_str = "0:00:00" # Valor por defecto
+            h_str = "0:00:00"
             if reg['hora_entrada'] and reg['hora_salida']:
-                # Combinamos la fecha con las horas para poder restarlas
-                fecha_asistencia = reg['fecha']
-                dt_entrada = datetime.combine(fecha_asistencia, reg['hora_entrada'])
-                dt_salida = datetime.combine(fecha_asistencia, reg['hora_salida'])
+                di = datetime.combine(reg['fecha'], reg['hora_entrada'])
+                do = datetime.combine(reg['fecha'], reg['hora_salida'])
+                if do < di: do += timedelta(days=1)
+                ts = int((do - di).total_seconds())
+                h, r = divmod(ts, 3600); m, s = divmod(r, 60)
+                h_str = f"{h}:{m:02d}:{s:02d}"
 
-                # Si la hora de salida es menor
-                if dt_salida < dt_entrada:
-                    dt_salida += timedelta(days=1)
-                
-                duracion = dt_salida - dt_entrada
-                
-                # Formateamos la duración a un string H:MM:SS
-                total_seconds = int(duracion.total_seconds())
-                hours, remainder = divmod(total_seconds, 3600)
-                minutes, seconds = divmod(remainder, 60)
-                horas_trabajadas_str = f"{hours}:{minutes:02d}:{seconds:02d}"
-
-            datos_procesados.append({
-                "ID": reg['id'],
-                "Trabajador": reg['trabajador'],
-                "Fecha": reg['fecha'],
-                "Hora Entrada": reg['hora_entrada'],
-                "Hora Salida": reg['hora_salida'],
-                "Horas trabajadas": horas_trabajadas_str, 
+            datos_hist.append({
+                "ID": reg['id'], "Trabajador": reg['trabajador'], "Fecha": reg['fecha'],
+                "Entrada": reg['hora_entrada'], "Salida": reg['hora_salida'], "Horas": h_str,
                 "Asistió": "Sí" if reg['is_asistencia'] else "No",
-                "Atrasado": "Sí" if reg['is_atrasado'] else "No",
                 "Justificado": "Sí" if reg['justificado'] else "No",
-                "Procesado IA": "Sí" if reg['procesado_ia'] else "No",
-                "Mensaje": reg['mensaje'],
-                "Categoria": reg['categoria'],
-                "Inicio Inasistencia": reg['fecha_inicio_inasistencia'],
-                "Fin Inasistencia": reg['fecha_fin_inasistencia'],
-                "Dias": reg['duracion_dias']
+                "Mensaje IA": reg['mensaje'], "Categoria": reg['categoria'], "Días": reg['duracion_dias']
             })
+        
+        df_hist = pd.DataFrame(datos_hist)
 
-        # Creación del archivo Excel con Pandas
-        df = pd.DataFrame(datos_procesados)
+        # 2. DATOS PREDICCIONES (EJECUTAMOS EL MODELO)
+        predicciones_list = entrenar_y_predecir_inasistencias()
+        df_pred = pd.DataFrame(predicciones_list)
 
+        # 3. CREAR EXCEL CON DOS HOJAS
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            df.to_excel(writer, index=False, sheet_name='Reporte Completo de Asistencias')
-            worksheet = writer.sheets['Reporte Completo de Asistencias']
-            # ajuste del ancho de las columnas
-            for column_cells in worksheet.columns:
-                max_length = 0
-                column_letter = column_cells[0].column_letter
-                for cell in column_cells:
+            # Hoja 1: Historial
+            df_hist.to_excel(writer, index=False, sheet_name='Reporte Histórico')
+            ws1 = writer.sheets['Reporte Histórico']
+            for col in ws1.columns:
+                max_len = 0
+                col_let = col[0].column_letter
+                for cell in col:
                     try:
-                        if len(str(cell.value)) > max_length:
-                            max_length = len(str(cell.value))
-                    except:
-                        pass
-                adjusted_width = (max_length + 2)
-                worksheet.column_dimensions[column_letter].width = adjusted_width
-        output.seek(0)
+                        if len(str(cell.value)) > max_len: max_len = len(str(cell.value))
+                    except: pass
+                ws1.column_dimensions[col_let].width = max_len + 2
 
-        return send_file(
-            output,
-            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            as_attachment=True,
-            download_name=f'reporte_asistencias_completo_{date.today()}.xlsx'
-        )
-    except Exception as e:
-        flash(f"Error al generar el reporte: {e}", "danger")
-        print(f"Error detallado en descarga: {e}") 
-        return redirect(url_for("asistencia.listar_asistencias"))
+            # Hoja 2: Predicciones (Limpias)
+            if not df_pred.empty:
+                # Reordenamos columnas para que lo más importante salga primero
+                cols_orden = ["Trabajador", "Fechas Exactas Estimadas", "Estado Riesgo", "Días Totales", "Frecuencia Histórica"]
+                # Filtramos solo si las columnas existen en el dataframe
+                cols_final = [c for c in cols_orden if c in df_pred.columns]
+                df_pred = df_pred[cols_final]
+                
+                df_pred.to_excel(writer, index=False, sheet_name='Predicciones IA')
+                
+                ws2 = writer.sheets['Predicciones IA']
+                for col in ws2.columns:
+                    max_len = 0
+                    col_let = col[0].column_letter
+                    for cell in col:
+                        try:
+                            if len(str(cell.value)) > max_len: max_len = len(str(cell.value))
+                        except: pass
+                    ws2.column_dimensions[col_let].width = max_len + 4 # Un poco más de espacio
+
+        output.seek(0)
+        return send_file(output, as_attachment=True, download_name=f'reporte_ia_detallado_{date.today()}.xlsx',
+                         mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     finally:
-        if conn:
-            conn.close()
+        conn.close()
