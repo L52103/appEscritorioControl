@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-4">
+    <h2> Predicción de Ausentismo (IA + Machine Learning)</h2>
+    <p>Análisis basado en historial y modelos Random Forest.</p>
+    
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Trabajador</th>
+                <th>Riesgo</th>
+                <th>Próxima Falta Estimada</th>
+                <th>Frecuencia</th>
+                <th>Duración Estimada (Días)</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in predicciones %}
+            <tr>
+                <td>{{ p.trabajador }}</td>
+                <td>
+                    <span class="badge bg-{{ 'danger' if 'Alto' in p.riesgo_ausentismo else 'warning' if 'Medio' in p.riesgo_ausentismo else 'success' }}">
+                        {{ p.riesgo_ausentismo }}
+                    </span>
+                </td>
+                <td>{{ p.prox_fecha_probable }}</td>
+                <td>{{ p.frecuencia_promedio }}</td>
+                <td>{{ p.dias_estimados_proxima }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="5">No hay suficientes datos históricos para predecir.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
