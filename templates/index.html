@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{% block title %}Control Asistencia{% endblock %}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+
+    {% block styles %}{% endblock %}
+
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #f8f9fa;
+        }
+        .btn-group-vertical {
+            gap: 10px;
+        }
+        .btn i {
+            margin-right: 8px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="text-center mb-4">
+        <h1>Control de Asistencia</h1>
+    </div>
+
+    <div class="btn-group-vertical">
+        <a href="{{ url_for('empresa.listar_empresas') }}" class="btn btn-danger">
+            <i class="fas fa-building"></i> Empresas
+        </a>
+        <a href="{{ url_for('sucursal.listar_sucursales') }}" class="btn btn-warning">
+            <i class="fas fa-code-branch"></i> Sucursales
+        </a>
+        <a href="{{ url_for('areatrabajo.listar_areas') }}" class="btn btn-success">
+            <i class="fas fa-sitemap"></i> Áreas de Trabajo
+        </a>
+        <a href="{{ url_for('trabajador.listar_trabajadores') }}" class="btn btn-primary">
+            <i class="fas fa-users"></i> Trabajadores
+        </a>
+        <a href="{{ url_for('asistencia.listar_asistencias') }}" class="btn btn-info">
+            <i class="fas fa-calendar-check"></i> Asistencias
+        </a>
+        <a href="{{ url_for('turno.listar_turnos') }}" class="btn btn-secondary">
+            <i class="fas fa-clock"></i> Turnos
+        </a>
+        <a href="{{ url_for('turno_trabajador.listar_turnos_trabajadores') }}" class="btn btn-dark">
+            <i class="fas fa-user-clock"></i> Turno-Trabajador
+        </a>
+        <a href="{{ url_for('sueldos.listar_sueldos') }}" class="btn btn-dark">
+        <i class="fa-solid fa-sack-dollar"></i> Sueldos
+        </a>
+
+
+         
+ 
+    </div>
+    <main class="container">
+    {% block content %}{% endblock %}
+    </main>
+
+    <footer class="container text-center text-muted mt-5 py-3 border-top">
+        <p>&copy; 2025 Mi Empresa. Todos los derechos reservados.</p>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>
