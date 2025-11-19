@@ -109,9 +109,9 @@
                         <td class="text-center">{{ a['duracion_dias'] or '—' }}</td>
                         <td class="text-center text-nowrap">
                             {% if not a['is_asistencia'] and not a['procesado_ia'] %}
-                            <form action="{{ url_for('asistencia.procesar_asistencia', asistencia_id=a['id']) }}" method="POST" class="d-inline">
-                                <button type="submit" class="btn btn-sm btn-outline-primary">Procesar</button>
-                            </form>
+                        <form action="{{ url_for('asistencia.procesar_asistencia', id=a['id']) }}" method="POST" class="d-inline">
+                            <button type="submit" class="btn btn-sm btn-outline-primary">Procesar</button>
+                        </form>
                             {% else %}
                             <button class="btn btn-sm btn-outline-secondary" disabled>Procesar</button>
                             {% endif %}

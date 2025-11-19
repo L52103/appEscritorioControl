@@ -29,16 +29,10 @@ def get_model():
             if _model is None:
                 # Prioridad: Modelo Rápido > Modelo Lento
                 modelo_rapido = "tinyllama-1.1b-chat-v1.0.Q4_0.gguf"
-                modelo_lento = "mistral-7b-instruct-v0.1.Q4_0.gguf"
                 
                 if os.path.exists(modelo_rapido):
                     _model = GPT4All(modelo_rapido, device="cpu")
-                elif os.path.exists(modelo_lento):
-                    print(f"Usando modelo lento: {modelo_lento}")
-                    _model = GPT4All(modelo_lento, device="cpu")
-                else:
-                    try: _model = GPT4All(modelo_rapido, device="cpu")
-                    except: _model = GPT4All(modelo_lento, device="cpu")
+
     return _model
 
 def resumir_mensaje(mensaje: str) -> str:
