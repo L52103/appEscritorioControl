@@ -10,7 +10,7 @@ import io
 import numpy as np
 import os
 
-# --- LIBRERIAS DE MACHINE LEARNING ---
+# LIBRERIAS DE MACHINE LEARNING 
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.preprocessing import LabelEncoder
 
@@ -27,9 +27,9 @@ def get_model():
     if _model is None:
         with _model_lock:
             if _model is None:
-                # Prioridad: Modelo Rápido > Modelo Lento
+
                 modelo_rapido = "tinyllama-1.1b-chat-v1.0.Q4_0.gguf"
-                
+
                 if os.path.exists(modelo_rapido):
                     _model = GPT4All(modelo_rapido, device="cpu")
 
@@ -145,7 +145,7 @@ def entrenar_y_predecir_inasistencias():
         w_data = df[df['trabajador_id'] == tid].sort_values('fecha')
         nombre = df_trabajadores[df_trabajadores['id'] == tid]['nombre_completo'].iloc[0]
         
-        # --- 1. CÁLCULO DE FECHA DE INICIO ---
+        # 1. CÁLCULO DE FECHA DE INICIO 
         riesgo_texto = "Bajo"
         promedio_dias_entre_faltas = 0
         fecha_inicio_estimada = None
@@ -163,9 +163,8 @@ def entrenar_y_predecir_inasistencias():
             dias_restantes = (fecha_inicio_estimada - datetime.now()).days
             
             if fecha_inicio_estimada < datetime.now():
-                riesgo_texto = "⚠️ ALTO (Atrasado)"
+                riesgo_texto = "ALTO (Atrasado)"
                 # Si ya pasó, asumimos que el riesgo es hoy
-                # fecha_inicio_estimada = datetime.now() # Descomentar si quieres ajustar al día actual
             elif dias_restantes < 7:
                 riesgo_texto = "Alto"
             elif dias_restantes < 15:
@@ -186,7 +185,7 @@ def entrenar_y_predecir_inasistencias():
         else:
              dias_duracion_est = w_data['duracion_dias'].mean() if not w_data.empty else 1
 
-        # --- 3. FORMATO DE SALIDA (Fechas Exactas) ---
+        # 3. FORMATO DE SALIDA (Fechas Exactas) 
         duracion_entero = int(round(dias_duracion_est))
         if duracion_entero < 1: duracion_entero = 1
         
@@ -260,7 +259,7 @@ def procesar_asistencia(id):
     finally: conn.close()
     return redirect(url_for("asistencia.listar_asistencias"))
 
-# --- RUTA DE DESCARGA ACTUALIZADA ---
+# RUTA DE DESCARGA ACTUALIZADA
 @asistencia_bp.route("/asistencias/descargar")
 def descargar_asistencias():
     conn = get_connection()
@@ -320,7 +319,7 @@ def descargar_asistencias():
                     except: pass
                 ws1.column_dimensions[col_let].width = max_len + 2
 
-            # Hoja 2: Predicciones (Limpias)
+            # Hoja 2: Predicciones 
             if not df_pred.empty:
                 # Reordenamos columnas para que lo más importante salga primero
                 cols_orden = ["Trabajador", "Fechas Exactas Estimadas", "Estado Riesgo", "Días Totales", "Frecuencia Histórica"]
@@ -338,7 +337,7 @@ def descargar_asistencias():
                         try:
                             if len(str(cell.value)) > max_len: max_len = len(str(cell.value))
                         except: pass
-                    ws2.column_dimensions[col_let].width = max_len + 4 # Un poco más de espacio
+                    ws2.column_dimensions[col_let].width = max_len + 4 
 
         output.seek(0)
         return send_file(output, as_attachment=True, download_name=f'reporte_ia_detallado_{date.today()}.xlsx',
