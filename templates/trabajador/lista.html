@@ -19,6 +19,7 @@
             <li><a class="dropdown-item {% if active_page == 'asistencias' %}active{% endif %}" href="{{ url_for('asistencia.listar_asistencias') }}">📅 Asistencias</a></li>
             <li><a class="dropdown-item {% if active_page == 'turnos' %}active{% endif %}" href="{{ url_for('turno.listar_turnos') }}">⏰ Turnos</a></li>
             <li><a class="dropdown-item {% if active_page == 'turno_trabajador' %}active{% endif %}" href="{{ url_for('turno_trabajador.listar_turnos_trabajadores') }}">🔄 Turno-Trabajador</a></li>
+            <li><a class="dropdown-item {% if active_page == 'sueldos' %}active{% endif %}" href="{{ url_for('sueldos.listar_sueldos') }}">💰 Sueldos</a></li>
             <li><a class="dropdown-item {% if active_page == 'index' %}active{% endif %}" href="{{ url_for('index') }}">Volver al inicio</a></li>
         </ul>
     </div>
