@@ -52,7 +52,7 @@ def editar_turno(id):
         data = request.form
         cur.execute(
             """UPDATE turno SET horario_inicio=%s, horario_fin=%s, tipo_turno=%s, area_id=%s WHERE id=%s""",
-            (data["horario_inicio"], data["horo_fin"], data["tipo_turno"], data["area_id"], id)
+            (data["horario_inicio"], data["horario_fin"], data["tipo_turno"], data["area_id"], id)
         )
         conn.commit()
         cur.close()
