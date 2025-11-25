@@ -27,11 +27,22 @@ def get_model():
     if _model is None:
         with _model_lock:
             if _model is None:
-
                 modelo_rapido = "tinyllama-1.1b-chat-v1.0.Q4_0.gguf"
+                model_path = "routes"  # carpeta donde está el modelo
 
-                if os.path.exists(modelo_rapido):
-                    _model = GPT4All(modelo_rapido, device="cpu")
+                # ruta completa al archivo .gguf
+                full_path = os.path.join(model_path, modelo_rapido)
+
+                if os.path.exists(full_path):
+                    _model = GPT4All(
+                        modelo_rapido,
+                        model_path=model_path,  # GPT4All busca el modelo en esta carpeta
+                        device="cpu"
+                    )
+                else:
+                    raise FileNotFoundError(
+                        f"No se encontró el modelo en: {full_path}"
+                    )
 
     return _model
 
@@ -220,16 +231,29 @@ def listar_asistencias():
     try:
         cur = conn.cursor(cursor_factory=DictCursor)
         cur.execute("""
-            SELECT a.id, a.fecha, a.hora_entrada, a.hora_salida, 
-                   TRIM(CONCAT_WS(' ', t.nombre, t.apellido)) AS trabajador_nombre,
-                   a.is_asistencia, a.justificado, a.procesado_ia,
-                   COALESCE(a.mensaje, '') AS mensaje_texto, COALESCE(a.categoria, '') AS categoria,
-                   a.duracion_dias
-            FROM asistencia a LEFT JOIN trabajador t ON t.id = a.trabajador_id
+            SELECT 
+                a.id, 
+                a.fecha, 
+                a.hora_entrada, 
+                a.hora_salida, 
+                TRIM(CONCAT_WS(' ', t.nombre, t.apellido)) AS trabajador_nombre,
+                a.is_asistencia, 
+                a.justificado, 
+                a.procesado_ia,
+                COALESCE(a.mensaje, '') AS mensaje_texto, 
+                COALESCE(a.categoria, '') AS categoria,
+                a.fecha_inicio_inasistencia,
+                a.fecha_fin_inasistencia,
+                a.duracion_dias
+            FROM asistencia a 
+            LEFT JOIN trabajador t ON t.id = a.trabajador_id
             ORDER BY a.fecha DESC, a.id DESC;
         """)
-        return render_template("asistencia/lista.html", asistencias=cur.fetchall())
-    finally: conn.close()
+        asistencias = cur.fetchall()
+        return render_template("asistencia/lista.html", asistencias=asistencias)
+    finally:
+        conn.close()
+
 
 @asistencia_bp.route("/predicciones", methods=["GET"])
 def dashboard_predicciones():
@@ -243,15 +267,20 @@ def procesar_asistencia(id):
     try:
         cur.execute("SELECT * FROM asistencia WHERE id = %s FOR UPDATE", (id,))
         row = cur.fetchone()
-        if not row or row['is_asistencia'] or row['procesado_ia']: return redirect(url_for("asistencia.listar_asistencias"))
-        
+
+        justificado = False
+        if row['justificado'] in (True, 1, '1'):
+            justificado = True
+
         msg = row['mensaje'] or ""
-        if not row['justificado']:
+
+        if not justificado:
             res, cat, ini, fin, dur = "Inasistencia sin justificar.", "otros", row['fecha'], row['fecha'], 1
         else:
             res = resumir_mensaje(msg)
             cat = detectar_categoria(res)
             ini, fin, dur = calcular_rango(msg, row['fecha'])
+
 
         cur.execute("UPDATE asistencia SET mensaje=%s, categoria=%s, fecha_inicio_inasistencia=%s, fecha_fin_inasistencia=%s, duracion_dias=%s, procesado_ia=TRUE WHERE id=%s", (res, cat, ini, fin, dur, id))
         conn.commit(); flash("Procesado.", "success")
