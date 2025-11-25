@@ -147,7 +147,7 @@ def calcular_rango(mensaje: str, fecha_dialogo: date):
     return fecha_dialogo, fecha_dialogo, 1
 
 # ==========================================
-# 3. MÓDULO DE PREDICCIÓN (ML) - SIN CAMBIOS
+# 3. MÓDULO DE PREDICCIÓN (ML) 
 # ==========================================
 def entrenar_y_predecir_inasistencias():
     conn = get_connection()
@@ -166,7 +166,8 @@ def entrenar_y_predecir_inasistencias():
     finally:
         conn.close()
 
-    if df.empty: return []
+    if df.empty:
+        return []
 
     le_cat = LabelEncoder()
     rf_model = None
@@ -174,6 +175,7 @@ def entrenar_y_predecir_inasistencias():
     if len(df) > 5:
         df['cat_encoded'] = le_cat.fit_transform(df['categoria'].astype(str))
         X = df[['trabajador_id', 'dia_semana', 'mes', 'cat_encoded']].fillna(0)
+       
         y = df['duracion_dias'].fillna(1)
         rf_model = RandomForestRegressor(n_estimators=50, random_state=42)
         rf_model.fit(X, y)
@@ -183,58 +185,113 @@ def entrenar_y_predecir_inasistencias():
     
     for tid in unique_workers:
         w_data = df[df['trabajador_id'] == tid].sort_values('fecha')
-        
+
+        # si no encuentra el nombre 
         nombre_df = df_trabajadores[df_trabajadores['id'] == tid]
-        nombre = nombre_df['nombre_completo'].iloc[0] if not nombre_df.empty else f"Trabajador {tid}"
+        if not nombre_df.empty:
+            nombre = nombre_df['nombre_completo'].iloc[0]
+        else:
+            nombre = f"Trabajador {tid}"
         
+        # inicio
         riesgo_texto = "Bajo"
-        promedio_dias_entre_faltas = 0
+        promedio_dias_entre_faltas = None
         fecha_inicio_estimada = None
         
         if len(w_data) >= 2:
             w_data['fecha'] = pd.to_datetime(w_data['fecha'])
             diferencias = w_data['fecha'].diff().dt.days.dropna()
-            promedio_dias_entre_faltas = diferencias.mean()
-            ultima_falta = w_data['fecha'].iloc[-1]
-            fecha_inicio_estimada = ultima_falta + timedelta(days=promedio_dias_entre_faltas)
-            dias_restantes = (fecha_inicio_estimada - datetime.now()).days
-            
-            if fecha_inicio_estimada < datetime.now(): riesgo_texto = "ALTO (Atrasado)"
-            elif dias_restantes < 7: riesgo_texto = "Alto"
-            elif dias_restantes < 15: riesgo_texto = "Medio"
-        else:
-             fecha_inicio_estimada = datetime.now() + timedelta(days=30) 
-             riesgo_texto = "Sin historial suficiente"
 
+            if not diferencias.empty:
+                promedio = diferencias.mean()
+                # si el promedio es válido 
+                if not pd.isna(promedio) and np.isfinite(promedio):
+                    promedio_dias_entre_faltas = promedio
+                    ultima_falta = w_data['fecha'].iloc[-1]
+                    fecha_inicio_estimada = ultima_falta + timedelta(days=promedio)
+
+                    dias_restantes = (fecha_inicio_estimada - datetime.now()).days
+                    
+                    if fecha_inicio_estimada < datetime.now():
+                        riesgo_texto = "⚠️ ALTO (Atrasado)"
+                    elif dias_restantes < 7:
+                        riesgo_texto = "Alto"
+                    elif dias_restantes < 15:
+                        riesgo_texto = "Medio"
+                    else:
+                        riesgo_texto = "Bajo"
+                else:
+                   
+                    fecha_inicio_estimada = datetime.now() + timedelta(days=30)
+                    riesgo_texto = "Sin historial suficiente"
+            else:
+                
+                fecha_inicio_estimada = datetime.now() + timedelta(days=30)
+                riesgo_texto = "Sin historial suficiente"
+        else:
+            fecha_inicio_estimada = datetime.now() + timedelta(days=30)  # Default si no hay datos
+            riesgo_texto = "Sin historial suficiente"
+
+        # Días
         dias_duracion_est = 1.0
         if rf_model:
             try:
                 mañana = date.today() + timedelta(days=1)
                 cat_moda = w_data['categoria'].mode()[0] if not w_data['categoria'].empty else 'otros'
                 cat_code = le_cat.transform([cat_moda])[0] if cat_moda in le_cat.classes_ else 0
-                dias_duracion_est = rf_model.predict(pd.DataFrame([[tid, mañana.weekday(), mañana.month, cat_code]], columns=['trabajador_id', 'dia_semana', 'mes', 'cat_encoded']))[0]
-            except: dias_duracion_est = w_data['duracion_dias'].mean()
-        else:
-             dias_duracion_est = w_data['duracion_dias'].mean() if not w_data.empty else 1
 
-        duracion_entero = int(round(dias_duracion_est))
-        if duracion_entero < 1: duracion_entero = 1
+                X_pred = pd.DataFrame(
+                    [[tid, mañana.weekday(), mañana.month, cat_code]],
+                    columns=['trabajador_id', 'dia_semana', 'mes', 'cat_encoded']
+                )
+                dias_duracion_est = rf_model.predict(X_pred)[0]
+            except Exception:
+                dias_duracion_est = w_data['duracion_dias'].mean()
+        else:
+            dias_duracion_est = w_data['duracion_dias'].mean() if not w_data.empty else 1
+
+        # si la media viene NaN forzamos a 1 día
+        if pd.isna(dias_duracion_est) or not np.isfinite(dias_duracion_est):
+            dias_duracion_est = 1
+
+        # Fechas Exactas
+        try:
+            duracion_entero = int(round(dias_duracion_est))
+        except (TypeError, ValueError):
+            duracion_entero = 1
+
+        if duracion_entero < 1:
+            duracion_entero = 1
         
+        # Calculo Fecha Fin
         fecha_fin_estimada = fecha_inicio_estimada + timedelta(days=duracion_entero - 1)
+        
+        # String 
         str_inicio = fecha_inicio_estimada.strftime("%d/%m/%Y")
         str_fin = fecha_fin_estimada.strftime("%d/%m/%Y")
         
-        rango_texto = f"{str_inicio} al {str_fin}" if duracion_entero > 1 else f"{str_inicio}"
+        if duracion_entero > 1:
+            rango_texto = f"{str_inicio} al {str_fin}"
+        else:
+            rango_texto = f"{str_inicio}"
+
+        # Frecuencia histórica solo si tenemos promedio valido
+        if promedio_dias_entre_faltas is not None and np.isfinite(promedio_dias_entre_faltas):
+            freq_text = f"Falta cada {int(round(promedio_dias_entre_faltas))} días"
+        else:
+            freq_text = "N/A"
 
         resultados.append({
             "Trabajador": nombre,
             "Estado Riesgo": riesgo_texto,
-            "Fechas Exactas Estimadas": rango_texto, 
+            "Fechas Exactas Estimadas": rango_texto,  
             "Días Totales": duracion_entero,
-            "Frecuencia Histórica": f"Falta cada {int(promedio_dias_entre_faltas)} días" if len(w_data) >= 2 else "N/A"
+            "Frecuencia Histórica": freq_text
         })
         
     return resultados
+
+
 
 # ==========================================
 # 4. RUTAS
