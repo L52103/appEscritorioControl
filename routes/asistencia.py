@@ -27,22 +27,20 @@ def get_model():
     if _model is None:
         with _model_lock:
             if _model is None:
-                # CAMBIO: Usamos Llama 3 8B. Es el mejor modelo balanceado hoy en día.
-                # Asegúrate de tener este archivo en tu carpeta 'routes'
+                #Usamos Llama 3 8B. Es el mejor modelo balanceado hoy en día.
                 modelo_nombre = "Meta-Llama-3-8B-Instruct.Q4_0.gguf"
                 model_path = "routes" 
 
                 full_path = os.path.join(model_path, modelo_nombre)
 
                 # Intentamos cargar. Si no existe, GPT4All intentará descargarlo si allow_download=True
-                # pero es mejor que tú pongas el archivo ahí manualmente.
                 if os.path.exists(full_path):
                     print(f"--> Cargando Llama 3 desde: {full_path} ...")
                     _model = GPT4All(
                         modelo_nombre,
                         model_path=model_path,
                         device="gpu",
-                        allow_download=False # Pon True si quieres que intente bajarlo (4GB)
+                        allow_download=False # True si quieres bajarlo (4GB)
                     )
                 else:
                     print(f"ADVERTENCIA: No se encontró {modelo_nombre} en {model_path}")
@@ -101,8 +99,8 @@ def detectar_categoria(texto_ia: str) -> str:
     
     # Mapa de palabras clave
     if any(x in m for x in ['accidente', 'choque', 'vehicular', 'siniestro']): return 'accidente'
-    if any(x in m for x in ['salud', 'médico', 'medico', 'enfermedad', 'doctor', 'hospital', 'fiebre', 'gripe']): return 'medico'
-    if any(x in m for x in ['familiar', 'hijo', 'funeral', 'mamá', 'papá', 'hermano']): return 'asunto familiar'
+    if any(x in m for x in ['salud', 'médico', 'medico', 'enfermedad', 'doctor', 'hospital', 'fiebre', 'gripe', 'licencia', 'medica', 'médica']): return 'medico'
+    if any(x in m for x in ['familiar', 'hijo', 'funeral', 'mamá', 'papá', 'hermano', 'madre', 'padre', 'abuelo', 'abuela']): return 'asunto familiar'
     if any(x in m for x in ['personal', 'trámite', 'tramite', 'banco', 'notaría', 'viaje', 'mudanza']): return 'asunto personal'
     
     return 'otros'
@@ -110,7 +108,7 @@ def detectar_categoria(texto_ia: str) -> str:
 # ==========================================
 # 2. UTILIDADES (Fechas/Regex) - SIN CAMBIOS
 # ==========================================
-NUMEROS_PALABRA = {"un": 1, "uno": 1, "dos": 2, "tres": 3, "cuatro": 4, "cinco": 5}
+NUMEROS_PALABRA = {"un": 1, "uno": 1, "dos": 2, "tres": 3, "cuatro": 4, "cinco": 5, "seis": 6, "siete": 7, "ocho": 8, "nueve": 9, "diez": 10}
 
 def extraer_fechas(mensaje: str, anio_por_defecto: int):
     fechas_txt = re.findall(r'(\d{1,2}[/-]\d{1,2}(?:[/-]\d{2,4})?)', mensaje or "")
